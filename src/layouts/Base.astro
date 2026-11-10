@@ -1,0 +1,120 @@
+---
+// Grundgerüst jeder Seite: Kopfzeile, Weltkugel im Hintergrund, Schriften, RSS-Fenster
+import '@fontsource/gloock/400.css';
+import '@fontsource/source-serif-4/400.css';
+import '@fontsource/source-serif-4/400-italic.css';
+import '@fontsource/source-serif-4/600.css';
+import '@fontsource/ibm-plex-mono/400.css';
+import '@fontsource/ibm-plex-mono/500.css';
+import '@fontsource/caveat/500.css';
+import '../styles/global.css';
+import site from '../../site.config.mjs';
+import { globusDaten, jsonEinbetten } from '../lib/daten';
+
+interface Props {
+  titel?: string;
+  beschreibung?: string;
+  bild?: string | null;
+  modus?: 'home' | 'lesen';
+  fokus?: string | null;          // Eintrag, auf den die Weltkugel schaut
+  fokusOrt?: [number, number] | null; // alternativ Koordinaten [lon, lat]
+  bereich?: 'tagebuch' | 'gedichte' | null;
+  typ?: 'website' | 'article';
+  ohneKopf?: boolean;              // Leseseiten: eigene Leiste statt Kopfzeile
+}
+const { titel, beschreibung = `${site.untertitel} von ${site.autor}`, bild, modus = 'lesen', fokus = null, fokusOrt = null, bereich = null, typ = 'website', ohneKopf = false } = Astro.props;
+const seitenTitel = titel ? `${titel} · ${site.titel}` : site.titel;
+const daten = await globusDaten();
+const cfg = { modus, fokus, fokusOrt, stil: site.globus, nebel: site.nebel, gedichte: site.gedichte };
+const ogBild = bild ? new URL(bild, Astro.site).href : null;
+const kanon = new URL(Astro.url.pathname, Astro.site).href;
+const feed = new URL('/rss.xml', Astro.site).href;
+---
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{seitenTitel}</title>
+  <meta name="description" content={beschreibung}>
+  <link rel="canonical" href={kanon}>
+  <link rel="alternate" type="application/rss+xml" title={site.titel} href="/rss.xml">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#edf2f7">
+  <meta property="og:type" content={typ}>
+  <meta property="og:site_name" content={site.titel}>
+  <meta property="og:locale" content="de_DE">
+  <meta property="og:title" content={titel || site.titel}>
+  <meta property="og:description" content={beschreibung}>
+  <meta property="og:url" content={kanon}>
+  {ogBild && <meta property="og:image" content={ogBild}>}
+  <meta name="twitter:card" content={ogBild ? 'summary_large_image' : 'summary'}>
+  <link rel="preload" href="/data/countries-110m.json" as="fetch" crossorigin>
+</head>
+<body class:list={[modus === 'lesen' && 'dim', ohneKopf && 'reading', modus === 'home' && 'start']}>
+  <canvas id="globe" tabindex={modus === 'home' ? 0 : -1} data-cfg={JSON.stringify(cfg)}
+    role={modus === 'home' ? 'application' : 'presentation'} aria-roledescription={modus === 'home' ? 'Weltkugel' : undefined}
+    aria-label={modus === 'home' ? 'Weltkugel mit allen Reiseorten. Pfeiltasten wechseln den Ort, Enter öffnet den Eintrag, Plus und Minus zoomen.' : undefined}
+    aria-hidden={modus === 'home' ? undefined : 'true'}></canvas>
+  <script is:inline type="application/json" id="tb-daten" set:html={jsonEinbetten(daten)}></script>
+
+  <header class="top">
+    <div class="brand"><a href="/">{site.titel}</a><small>{site.untertitel}</small></div>
+    <div class="topr">
+      <nav class="nav" aria-label="Bereiche">
+        <a href="/" aria-current={bereich === 'tagebuch' ? 'page' : undefined}>Tagebuch</a>
+        <a href="/gedichte/" aria-current={bereich === 'gedichte' ? 'page' : undefined}>Gedichte</a>
+      </nav>
+      <button class="chip" id="rssBtn" aria-label="RSS-Feed abonnieren" aria-haspopup="dialog">📡<span class="hide-n"> RSS</span></button>
+    </div>
+  </header>
+
+  <slot />
+
+  <div class="modal" id="rssModal" hidden>
+    <button class="x" data-close aria-label="Schließen">✕</button>
+    <div class="sheetm" role="dialog" aria-labelledby="rssH">
+      <p class="eyebrow">RSS-Feed</p>
+      <h3 id="rssH">Neue Einträge verfolgen, ganz ohne Account</h3>
+      <p>Diese Adresse in eine Feed-App wie Feedly, Inoreader oder NetNewsWire einfügen. Jeder neue Eintrag erscheint dort automatisch.</p>
+      <div class="copyrow"><code id="feedUrl">{feed}</code><button class="btn sm" id="copyFeed">Kopieren</button></div>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script>
+    import { startGlobus } from '../scripts/globus.js';
+    const cv = document.getElementById('globe') as HTMLCanvasElement;
+    const cfg = JSON.parse(cv.dataset.cfg || '{}');
+    startGlobus(cfg).catch((err) => {
+      console.error('Weltkugel konnte nicht starten:', err);
+      cv.hidden = true;
+    });
+
+    // RSS-Fenster und allgemeines Schließen von Fenstern
+    const rss = document.getElementById('rssModal')!;
+    let zuletzt: HTMLElement | null = null;
+    document.getElementById('rssBtn')!.addEventListener('click', (ev) => {
+      zuletzt = ev.currentTarget as HTMLElement;
+      rss.hidden = false;
+      (document.getElementById('copyFeed') as HTMLElement).focus();
+    });
+    document.getElementById('copyFeed')!.addEventListener('click', async (ev) => {
+      const b = ev.currentTarget as HTMLButtonElement;
+      try { await navigator.clipboard.writeText(document.getElementById('feedUrl')!.textContent || ''); b.textContent = 'Kopiert ✓'; }
+      catch { b.textContent = 'Bitte markieren und kopieren'; }
+      setTimeout(() => (b.textContent = 'Kopieren'), 2200);
+    });
+    document.addEventListener('click', (ev) => {
+      const t = ev.target as HTMLElement;
+      const m = t.closest('.modal') as HTMLElement | null;
+      if (m && (t === m || t.closest('[data-close]'))) { m.hidden = true; m.dispatchEvent(new CustomEvent('geschlossen')); zuletzt?.focus(); }
+    });
+    addEventListener('keydown', (ev) => {
+      if (ev.key !== 'Escape') return;
+      const offen = [...document.querySelectorAll<HTMLElement>('.modal')].filter((m) => !m.hidden).pop();
+      if (offen) { ev.stopImmediatePropagation(); offen.hidden = true; offen.dispatchEvent(new CustomEvent('geschlossen')); zuletzt?.focus(); }
+    }, true);
+  </script>
+</body>
+</html>

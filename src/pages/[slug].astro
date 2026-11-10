@@ -1,0 +1,116 @@
+---
+import { render } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import { alleEintraege, datumDE, koord, auszug, lesezeit } from '../lib/daten';
+
+export async function getStaticPaths() {
+  const alle = await alleEintraege();
+  // Liste ist neueste zuerst: "vorheriger Ort" = älterer Eintrag, "nächster Ort" = neuerer
+  return alle.map((e, i) => ({
+    params: { slug: e.id },
+    props: { e, vorher: alle[i + 1] ?? null, nachher: alle[i - 1] ?? null },
+  }));
+}
+
+const { e, vorher, nachher } = Astro.props;
+const d = e.data;
+const { Content } = await render(e);
+const lieder = d.lieder.map((l) => ({ youtube: l.youtube, titel: l.titel || '' }));
+const galerie = d.galerie;
+const minuten = lesezeit(e.body);
+---
+<Base titel={d.titel} beschreibung={auszug(e.body)} bild={d.titelbild || galerie[0]?.bild} fokus={e.id} typ="article" bereich="tagebuch" ohneKopf>
+  <div class="lesen">
+    <article class="sheet art" id="artikel" data-lieder={JSON.stringify(lieder)} data-vorlesen={d.vorlesen || ''}>
+      <div class="sheet-bar">
+        <a class="btn sm" href={`/#${e.id}`}>←<span class="hide-n"> Zur</span> Weltkugel</a>
+        <div class="grp">
+          {lieder.length > 0 && <button class="btn sm" id="musikBtn" aria-pressed="false" aria-label="Musik">♪<span class="hide-n"> Musik</span></button>}
+          <button class="btn sm" id="vorlesenBtn" aria-pressed="false" aria-label="Vorlesen">🔈<span class="hide-n"> Vorlesen</span></button>
+          <button class="btn sm" id="druckBtn" aria-label="Drucken oder als PDF speichern">⎙<span class="hide-n"> Drucken / PDF</span></button>
+        </div>
+        <i class="progress" id="prog"></i>
+      </div>
+
+      {galerie.length > 1 && (
+        <div class="gallery">
+          <p class="mono" style="margin:0">Alle Bilder dieses Eintrags · {galerie.length}</p>
+          <div class="row">
+            {galerie.map((g, i) => (
+              <button data-bild={i} aria-label={`Bild ${i + 1} groß anzeigen${g.text ? ': ' + g.text : ''}`}>
+                <img src={g.bild} alt={g.text || ''} loading="lazy" decoding="async">
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <header class="art-head">
+        <p class="eyebrow">{datumDE(d.datum)} · {d.ort}, {d.land}</p>
+        <h1>{d.titel}</h1>
+        <p class="mono">{koord(d.breite, d.laenge)}</p>
+        <p class="stats" style="margin-top:6px">
+          {d.uhrzeit && <span>🕓 <b>{d.uhrzeit}</b> Ortszeit</span>}
+          {d.wetter && <span>☀ <b>{d.wetter}</b></span>}
+          <span>📖 <b>{minuten} Min.</b> Lesezeit</span>
+        </p>
+      </header>
+
+      {galerie.length === 1 && <figure><img src={galerie[0].bild} alt={galerie[0].text || ''}>{galerie[0].text && <figcaption>{galerie[0].text}</figcaption>}</figure>}
+
+      <div class="text" id="text"><Content /></div>
+
+      {d.vorlesen && (
+        <div class="vorlesebar" id="vorlesebar" hidden>
+          <span class="mono">🔈 Von {d.ort} vorgelesen</span>
+          <audio id="vorleseAudio" controls preload="none" src={d.vorlesen}></audio>
+        </div>
+      )}
+
+      {d.persoenliches && (
+        <section class="personal" aria-labelledby="pTitle">
+          <h2 id="pTitle">Persönliches</h2>
+          <p class="ptext">{d.persoenliches}</p>
+        </section>
+      )}
+
+      <nav class="artnav" aria-label="Weitere Einträge">
+        {vorher ? <a href={`/${vorher.id}/`}><span class="mono">← Vorheriger Ort</span><span class="an-t">{vorher.data.ort}: {vorher.data.titel}</span></a> : <span></span>}
+        {nachher ? <a class="next" href={`/${nachher.id}/`}><span class="mono">Nächster Ort →</span><span class="an-t">{nachher.data.ort}: {nachher.data.titel}</span></a> : <span></span>}
+      </nav>
+      <div class="artend"><a class="btn" href={`/#${e.id}`}>← Zurück zur Weltkugel</a><span class="lg"><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a></span></div>
+    </article>
+  </div>
+
+  <div class="modal" id="ytModal" hidden>
+    <button class="x" data-close aria-label="Schließen">✕</button>
+    <div class="sheetm" role="dialog" aria-labelledby="ytTitle">
+      <p class="eyebrow">Musik</p>
+      <h3 id="ytTitle">Musik über YouTube abspielen?</h3>
+      <p>Zum Lesen läuft ein Lied von YouTube. Dabei werden Daten an YouTube (Google) übertragen. Ohne deine Zustimmung wird nichts geladen.</p>
+      <div class="consent-actions"><button class="btn primary" id="ytOnce">Einmal erlauben</button><button class="btn" id="ytAlways">Immer erlauben</button><button class="btn" data-close>Ohne Musik lesen</button></div>
+    </div>
+  </div>
+  <div class="modal lightbox" id="lightbox" hidden>
+    <button class="x" data-close aria-label="Schließen">✕</button>
+    <div><img id="lbImg" alt=""><p class="cap" id="lbCap"></p><div class="lbnav"><button class="btn sm" id="lbPrev">← Zurück</button><span class="mono" id="lbCount"></span><button class="btn sm" id="lbNext">Weiter →</button></div></div>
+  </div>
+  <div class="modal rahmen-modal" id="rahmen" hidden>
+    <button class="x" data-close aria-label="Schließen">✕</button>
+    <div class="frame"><div class="mat">
+      <p class="dom" id="rhDom"></p>
+      <h3 id="rhTitel"></h3>
+      <p id="rhText">Dieser Link führt auf eine andere Webseite.</p>
+      <p><a class="btn" id="rhLink" href="#" target="_blank" rel="noopener">Seite öffnen ↗</a></p>
+    </div></div>
+  </div>
+  <div class="ytbox" id="ytbox" hidden>
+    <div class="yt-row"><span id="ytNow">♪</span><button id="ytStop" aria-label="Musik ausschalten">✕ Aus</button></div>
+    <div id="ytSlot"></div>
+  </div>
+
+  <script>
+    import { startLesen } from '../scripts/lesen.js';
+    startLesen();
+  </script>
+</Base>

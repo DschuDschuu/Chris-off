@@ -1,0 +1,11 @@
+---
+import Base from '../../layouts/Base.astro';
+import Gedichte from '../../components/Gedichte.astro';
+import { alleGedichte, alleEintraege, findeEintrag } from '../../lib/daten';
+const liste = await alleGedichte();
+const neuestes = liste[0] ?? null;
+const e = neuestes ? findeEintrag(await alleEintraege(), neuestes.data.eintrag) : undefined;
+---
+<Base titel="Gedichte" beschreibung="Gedichte von unterwegs, als Luftpost auf der Weltkugel." bereich="gedichte" fokus={e?.id}>
+  <Gedichte liste={liste} aktuell={neuestes} />
+</Base>

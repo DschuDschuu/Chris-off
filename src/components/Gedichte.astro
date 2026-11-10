@@ -1,0 +1,69 @@
+---
+// Gedichte: Liste links, ausgewähltes Gedicht als Luftpost-Brief rechts
+import { alleEintraege, datumDE, strophen, findeEintrag } from '../lib/daten';
+import type { CollectionEntry } from 'astro:content';
+
+interface Props { liste: CollectionEntry<'gedichte'>[]; aktuell?: CollectionEntry<'gedichte'> | null }
+const { liste, aktuell } = Astro.props;
+const eintraege = await alleEintraege();
+const g = aktuell;
+const e = g ? findeEintrag(eintraege, g.data.eintrag) : undefined;
+const ort = e?.data.ort ?? g?.data.ort ?? '';
+---
+<section class="poems seite" aria-label="Gedichte">
+  <div class="poems-wrap">
+    <nav class="plist" aria-label="Alle Gedichte">
+      <p class="mono">Gedichte · {liste.length}</p>
+      {liste.map((p) => {
+        const pe = findeEintrag(eintraege, p.data.eintrag);
+        return (
+          <a href={`/gedichte/${p.id}/`} aria-current={p.id === g?.id ? 'page' : undefined}>
+            <span class="pt">{p.data.titel}</span>
+            <span class="mono">{datumDE(p.data.datum)}{(pe?.data.ort ?? p.data.ort) ? ` · ${pe?.data.ort ?? p.data.ort}` : ''}</span>
+          </a>
+        );
+      })}
+      {liste.length === 0 && <p>Noch keine Gedichte.</p>}
+    </nav>
+
+    {g && (
+      <article class="letter blatt" aria-labelledby="gTitel">
+        {ort && <div class="pc-pm">{ort.toUpperCase()}</div>}
+        <p class="lt-meta">Luftpost{ort ? ` aus ${ort}` : ''} · {datumDE(g.data.datum)}</p>
+        <h1 id="gTitel">{g.data.titel}</h1>
+        <div class="lt-body" id="gText">
+          {strophen(g.body).map((s) => <p class="stanza">{s.map((z, i) => <Fragment>{i > 0 && <br />}{z}</Fragment>)}</p>)}
+        </div>
+        {ort && <p class="lt-sign">– geschrieben in {ort}</p>}
+        <div class="lt-actions">
+          <button class="pc-btn primary" id="gVorlesen" aria-pressed="false">🔈 Vorlesen</button>
+          {e && <a class="pc-btn" href={`/${e.id}/`}>Zum Eintrag aus {e.data.ort} →</a>}
+          {e && <a class="pc-btn" href={`/#${e.id}`}>🌍 Auf der Weltkugel</a>}
+        </div>
+      </article>
+    )}
+  </div>
+</section>
+
+<script>
+  // Gedicht von der Browserstimme vorlesen lassen, Strophe für Strophe
+  const btn = document.getElementById('gVorlesen');
+  if (btn && 'speechSynthesis' in window) {
+    const st = [...document.querySelectorAll<HTMLElement>('#gText .stanza')];
+    let an = false;
+    const stop = () => { an = false; speechSynthesis.cancel(); st.forEach((s) => s.classList.remove('speaking')); btn.textContent = '🔈 Vorlesen'; btn.setAttribute('aria-pressed', 'false'); };
+    btn.addEventListener('click', () => {
+      if (an) return stop();
+      an = true; btn.textContent = '⏹ Stopp'; btn.setAttribute('aria-pressed', 'true'); speechSynthesis.cancel();
+      const v = speechSynthesis.getVoices().filter((x) => x.lang.startsWith('de'));
+      const stimme = v.find((x) => /natural|online|premium|enhanced/i.test(x.name)) || v[0];
+      st.forEach((s, i) => {
+        const u = new SpeechSynthesisUtterance(s.innerText); u.lang = 'de-DE'; u.rate = 0.9; if (stimme) u.voice = stimme;
+        u.onstart = () => { st.forEach((x) => x.classList.remove('speaking')); s.classList.add('speaking'); };
+        if (i === st.length - 1) u.onend = stop;
+        speechSynthesis.speak(u);
+      });
+    });
+    addEventListener('pagehide', stop);
+  } else if (btn) btn.hidden = true;
+</script>

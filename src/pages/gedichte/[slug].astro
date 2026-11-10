@@ -1,0 +1,17 @@
+---
+import Base from '../../layouts/Base.astro';
+import Gedichte from '../../components/Gedichte.astro';
+import { alleGedichte, alleEintraege, findeEintrag, strophen } from '../../lib/daten';
+
+export async function getStaticPaths() {
+  const liste = await alleGedichte();
+  return liste.map((g) => ({ params: { slug: g.id }, props: { g, liste } }));
+}
+const { g, liste } = Astro.props;
+const e = findeEintrag(await alleEintraege(), g.data.eintrag);
+const ersteZeilen = strophen(g.body)[0]?.slice(0, 2).join(' / ') ?? '';
+const fokusOrt: [number, number] | null = !e && g.data.laenge != null && g.data.breite != null ? [g.data.laenge, g.data.breite] : null;
+---
+<Base titel={g.data.titel} beschreibung={ersteZeilen} bereich="gedichte" fokus={e?.id} fokusOrt={fokusOrt} typ="article" bild={e?.data.titelbild}>
+  <Gedichte liste={liste} aktuell={g} />
+</Base>

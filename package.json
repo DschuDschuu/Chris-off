@@ -1,0 +1,30 @@
+{
+  "name": "tagebuch-code",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Reisetagebuch mit Weltkugel – Code, Design und Funktionen",
+  "scripts": {
+    "dev": "node scripts/prepare.mjs && astro dev",
+    "build": "node scripts/prepare.mjs && astro build",
+    "preview": "astro preview",
+    "check:privat": "node scripts/privat-check.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@astrojs/rss": "^4.0.19",
+    "@fontsource/caveat": "^5.3.0",
+    "@fontsource/gloock": "^5.3.0",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/source-serif-4": "^5.3.1",
+    "astro": "^5.18.2",
+    "d3-ease": "^3.0.1",
+    "d3-geo": "^3.1.1",
+    "gray-matter": "^4.0.3",
+    "sharp": "^0.35.5",
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2"
+  }
+}

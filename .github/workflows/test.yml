@@ -1,0 +1,22 @@
+# Prüft jede Änderung am Code (auch Pull Requests) mit den Beispiel-Inhalten:
+# Seite muss sich bauen lassen und darf nichts Privates enthalten.
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  bauen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Privat-Check
+        run: npm run check:privat

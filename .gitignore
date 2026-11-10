@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.astro/
+.cache/
+# wird beim Bauen erzeugt
+public/data/
+public/media/
+public/admin/
+.DS_Store
+Thumbs.db

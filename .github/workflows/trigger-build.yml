@@ -1,0 +1,28 @@
+# Nach jedem Update am Code (Push auf main) wird die echte Seite im Inhalts-Repo neu gebaut.
+# Braucht im Code-Repo:
+#   Variable  CONTENT_REPO          z. B. christoph-name/tagebuch-inhalte
+#   Secret    BUILD_TRIGGER_TOKEN   Token von Christoph, Rechte NUR: Actions = Read and write auf tagebuch-inhalte
+# Ohne Token passiert nichts Schlimmes: Die Seite übernimmt Code-Updates dann beim nächsten Inhalts-Speichern
+# oder spätestens beim nächtlichen Bau.
+name: Seite neu bauen
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  ausloesen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Bau im Inhalts-Repo starten
+        env:
+          GH_TOKEN: ${{ secrets.BUILD_TRIGGER_TOKEN }}
+          CONTENT_REPO: ${{ vars.CONTENT_REPO }}
+        run: |
+          if [ -z "$GH_TOKEN" ] || [ -z "$CONTENT_REPO" ]; then
+            echo "::notice::Kein Token oder CONTENT_REPO gesetzt – Update geht beim nächsten Bau automatisch mit online."
+            exit 0
+          fi
+          gh workflow run build.yml --repo "$CONTENT_REPO" --ref main
+          echo "Bau in $CONTENT_REPO gestartet."

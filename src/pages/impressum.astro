@@ -1,0 +1,18 @@
+---
+import Base from '../layouts/Base.astro';
+import site from '../../site.config.mjs';
+---
+<Base titel="Impressum">
+  <main class="rechtlich">
+    <p class="eyebrow">Rechtliches</p>
+    <h1>Impressum</h1>
+    <p class="hinweis">⚠ Platzhalter. Vor dem Start mit echten Angaben füllen (Datei <code>src/pages/impressum.astro</code>).</p>
+    <p><b>Angaben gemäß § 5 DDG</b><br>
+      {site.autor} NACHNAME<br>
+      Straße Hausnummer<br>
+      PLZ Ort</p>
+    <p><b>Kontakt</b><br>E-Mail: name@beispiel.de</p>
+    <p><b>Verantwortlich für den Inhalt</b> nach § 18 Abs. 2 MStV: {site.autor} NACHNAME, Anschrift wie oben.</p>
+    <p><a class="btn" href="/">← Zur Weltkugel</a></p>
+  </main>
+</Base>

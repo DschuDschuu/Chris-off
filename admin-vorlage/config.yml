@@ -1,0 +1,77 @@
+# Editor-Einstellungen (Sveltia CMS). __REPO__ und __URL__ werden beim Bauen ersetzt.
+backend:
+  name: github
+  repo: __REPO__
+  branch: main
+  commit_messages:
+    create: 'Neu: {{slug}}'
+    update: 'Geändert: {{slug}}'
+    delete: 'Gelöscht: {{slug}}'
+    uploadMedia: 'Hochgeladen: {{path}}'
+    deleteMedia: 'Medium gelöscht: {{path}}'
+
+site_url: __URL__
+display_url: __URL__
+media_folder: media
+public_folder: /media
+slug:
+  encoding: ascii
+  clean_accents: true
+
+collections:
+  - name: eintraege
+    label: Einträge
+    label_singular: Eintrag
+    folder: eintraege
+    create: true
+    slug: '{{year}}-{{month}}-{{ort}}'
+    summary: '{{titel}} · {{ort}}'
+    sortable_fields: [datum, titel, ort]
+    fields:
+      - { label: Titel, name: titel, widget: string }
+      - { label: Datum, name: datum, widget: datetime, format: 'YYYY-MM-DD', date_format: 'DD.MM.YYYY', time_format: false }
+      - { label: Ort, name: ort, widget: string, hint: 'z. B. Lissabon' }
+      - { label: Land, name: land, widget: string, hint: 'auf Deutsch, z. B. Portugal' }
+      - { label: Breitengrad, name: breite, widget: number, value_type: float, hint: 'In Google Maps Rechtsklick auf den Ort: die erste Zahl, z. B. 38.7139' }
+      - { label: Längengrad, name: laenge, widget: number, value_type: float, hint: 'Die zweite Zahl, z. B. -9.1394 (westlich von Greenwich ist sie negativ)' }
+      - { label: Titelbild, name: titelbild, widget: image, required: false }
+      - label: Galerie
+        name: galerie
+        widget: list
+        required: false
+        fields:
+          - { label: Bild, name: bild, widget: image }
+          - { label: Bildunterschrift, name: text, widget: string, required: false }
+      - label: Lieder
+        name: lieder
+        widget: list
+        required: false
+        hint: 'Lied 1 startet beim Lesen. Weitere Lieder im Text mit einer eigenen Zeile [[Lied 2]], [[Lied 3]] … einsetzen.'
+        fields:
+          - { label: YouTube-Link, name: youtube, widget: string }
+          - { label: 'Titel (Interpret – Lied)', name: titel, widget: string, required: false }
+      - { label: Text, name: body, widget: markdown, hint: 'Bilder über das Bild-Symbol. Liedwechsel: eigene Zeile [[Lied 2]]. Links öffnen sich automatisch im Bilderrahmen.' }
+      - { label: 'Persönliches (lila Kasten am Ende, für alle sichtbar)', name: persoenliches, widget: text, required: false }
+      - { label: 'Ganz persönlich 🔒 (wird nie veröffentlicht)', name: ganz_persoenlich, widget: text, required: false }
+      - { label: 'Vorlese-Datei (MP3 mit deiner Stimme)', name: vorlesen, widget: file, required: false }
+      - { label: Ortszeit beim Schreiben, name: uhrzeit, widget: string, required: false, hint: 'z. B. 21:40' }
+      - { label: Wetter, name: wetter, widget: string, required: false, hint: 'z. B. 19 °C, klarer Himmel' }
+      - { label: 'Entwurf (noch nicht veröffentlichen)', name: entwurf, widget: boolean, default: false, required: false }
+
+  - name: gedichte
+    label: Gedichte
+    label_singular: Gedicht
+    folder: gedichte
+    create: true
+    identifier_field: titel
+    slug: '{{slug}}'
+    summary: '{{titel}}'
+    fields:
+      - { label: Titel, name: titel, widget: string }
+      - { label: Datum, name: datum, widget: datetime, format: 'YYYY-MM-DD', date_format: 'DD.MM.YYYY', time_format: false }
+      - { label: Gehört zum Eintrag, name: eintrag, widget: relation, collection: eintraege, value_field: '{{slug}}', search_fields: [titel, ort], display_fields: ['{{titel}} ({{ort}})'], required: false, hint: 'Der Ort wird dann vom Eintrag übernommen.' }
+      - { label: 'Ort (nur falls ohne Eintrag)', name: ort, widget: string, required: false }
+      - { label: 'Breitengrad (nur falls ohne Eintrag)', name: breite, widget: number, value_type: float, required: false }
+      - { label: 'Längengrad (nur falls ohne Eintrag)', name: laenge, widget: number, value_type: float, required: false }
+      - { label: Gedicht, name: body, widget: text, hint: 'Jede Zeile in eine eigene Zeile, Strophen durch eine Leerzeile trennen.' }
+      - { label: 'Entwurf (noch nicht veröffentlichen)', name: entwurf, widget: boolean, default: false, required: false }

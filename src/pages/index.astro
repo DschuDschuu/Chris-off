@@ -1,0 +1,65 @@
+---
+import Base from '../layouts/Base.astro';
+import site from '../../site.config.mjs';
+import { alleEintraege, datumDE } from '../lib/daten';
+const eintraege = await alleEintraege();
+const neuester = eintraege[0];
+---
+<Base modus="home" bereich="tagebuch" bild={neuester?.data.titelbild} beschreibung={`${site.untertitel} von ${site.autor}: ${eintraege.length} Orte auf einer Weltkugel.`}>
+  <a href="#entryPop" class="skip" id="skipList">Zur Liste aller Einträge springen</a>
+
+  <main class="home" id="home">
+    <h1 class="sr-only">{site.titel}</h1>
+    <div class="dock" id="dock">
+      <div class="pop" id="ctyPop" hidden><ul id="ctyList"></ul></div>
+      <div class="pop" id="entryPop" hidden><ul id="entryList"></ul><div class="pop-foot"><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a></div></div>
+      <p class="stats" id="stats"></p>
+      <div class="dock-btns">
+        <button class="btn sm" id="listBtn" aria-expanded="false" aria-controls="entryPop">📍 <span class="hide-n">Alle </span>Einträge</button>
+        <button class="btn sm" id="otdBtn" hidden>📅 Vor <span class="hide-n">einem</span><span class="show-n">1</span> Jahr</button>
+        <button class="btn sm" id="randomBtn">🎲 Zufall</button>
+      </div>
+    </div>
+    <div class="tc">
+      <div class="cbar" id="cbar" hidden aria-live="polite"><div class="cb-top"><b id="cbName"></b><span id="cbPct"></span></div><span class="cb-meter"><i id="cbFill"></i></span><span class="cb-sub" id="cbSub"></span></div>
+      <button class="worldbtn" id="worldBtn" hidden>🌍 Ganze Weltkugel zeigen</button>
+    </div>
+    <div class="zoomctl" role="group" aria-label="Zoom"><button id="zIn" aria-label="Hineinzoomen">+</button><button id="zOut" aria-label="Herauszoomen">−</button><button id="zReset" aria-label="Ansicht zurücksetzen" style="font-size:15px">⟲</button></div>
+    <nav class="legal" aria-label="Rechtliches"><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a></nav>
+
+    {/* Ohne JavaScript: einfache Liste aller Einträge */}
+    <noscript>
+      <section class="rechtlich">
+        <h2>Alle Einträge</h2>
+        <ul>{eintraege.map((e) => <li><a href={`/${e.id}/`}>{e.data.titel}</a> · {e.data.ort}, {datumDE(e.data.datum)}</li>)}</ul>
+      </section>
+    </noscript>
+  </main>
+
+  <div class="postcard" id="postcard" hidden role="dialog" aria-labelledby="pcTitle">
+    <button class="pc-x" id="pcClose" aria-label="Postkarte schließen">✕</button>
+    <div class="pc-in">
+      <a class="pc-img" id="pcImgLink" href="/"><img id="pcImg" alt=""><span class="pc-hint" id="pcHint">Lesen</span></a>
+      <div class="pc-body">
+        <span class="pa">✈ PAR AVION</span>
+        <p class="pc-eyebrow" id="pcEyebrow"></p>
+        <h2 id="pcTitle"></h2>
+        <p class="pc-meta" id="pcMeta"></p>
+        <p class="pc-ex" id="pcEx" hidden></p>
+      </div>
+      <div class="pc-actions" id="pcActions"></div>
+      <div class="pc-pm" id="pcPm"></div>
+    </div>
+  </div>
+
+  <div class="letter-wrap" id="letterWrap" hidden>
+    <div class="letter" id="letter" role="dialog" aria-labelledby="ltTitle">
+      <div class="pc-pm" id="ltPm"></div>
+      <p class="lt-meta" id="ltMeta"></p>
+      <h2 id="ltTitle"></h2>
+      <div class="lt-body" id="ltBody"></div>
+      <p class="lt-sign" id="ltSign"></p>
+      <div class="lt-actions"><a class="pc-btn primary" id="ltLink" href="/gedichte/">Gedicht öffnen</a><a class="pc-btn" href="/gedichte/">Alle Gedichte →</a><button class="pc-btn" id="ltClose" style="margin-left:auto">Schließen</button></div>
+    </div>
+  </div>
+</Base>
