@@ -39,8 +39,10 @@ collections:
         widget: list
         required: false
         hint: 'Mit „+ Baustein hinzufügen“ Text, Fotos, Notizzettel oder Lieder einfügen. Mit den Pfeilen oder am Griff verschieben.'
+        # Neue Einträge starten mit einem leeren Text-Baustein (leere Bausteine erscheinen auf der Seite nicht)
+        default: [{ type: text, text: '' }]
         types:
-          - { label: Text, name: text, widget: object, summary: '{{fields.text}}', fields: [{ label: Text, name: text, widget: markdown, buttons: [bold, italic, link], editor_components: [], hint: 'Links öffnen sich auf der Seite im Bilderrahmen.' }, { label: Mit Initiale beginnen, name: initiale, widget: boolean, default: false, required: false, hint: 'Der erste Buchstabe wird groß und verziert, z. B. nach einer Zwischenüberschrift.' }] }
+          - { label: Text, name: text, widget: object, summary: '{{fields.text}}', fields: [{ label: Text, name: text, widget: markdown, required: false, buttons: [bold, italic, link], editor_components: [], hint: 'Links öffnen sich auf der Seite im Bilderrahmen.' }, { label: Mit Initiale beginnen, name: initiale, widget: boolean, default: false, required: false, hint: 'Der erste Buchstabe wird groß und verziert, z. B. nach einer Zwischenüberschrift.' }] }
           - { label: Zwischenüberschrift, name: ueberschrift, widget: object, summary: '{{fields.text}}', fields: [{ label: Zwischenüberschrift, name: text, widget: string }] }
           - { label: Foto, name: foto, widget: object, summary: '{{fields.text}}', fields: [{ label: Foto, name: bild, widget: image }, { label: Bildunterschrift, name: text, widget: string, required: false }] }
           - { label: Fotostreifen, name: streifen, widget: object, summary: '{{fields.text}}', fields: [{ label: Fotos (2 oder 3), name: bilder, widget: list, min: 2, max: 3, field: { label: Foto, name: bild, widget: image } }, { label: Unterschrift, name: text, widget: string, required: false }] }

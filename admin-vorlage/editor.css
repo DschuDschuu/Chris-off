@@ -51,8 +51,18 @@ section.field[data-key-path="entwurf"] > header > h4::before { content: "edit_no
 section.field[data-key-path="persoenliches"] textarea { border-left: 4px solid var(--violett) !important; background: rgba(122, 79, 214, .05) !important; }
 section.field[data-key-path="ganz_persoenlich"] textarea { border: 2px dashed var(--grau) !important; }
 
-/* „+ Baustein hinzufügen“ als auffälliger Knopf */
-button[data-label*="Baustein"] { background: var(--blau) !important; color: #fff !important; border-color: var(--blau) !important; font-weight: 700 !important; }
+/* „+ Baustein hinzufügen“: groß, kräftig und mittig unter den Bausteinen */
+/* Sveltia legt einen Platzhalter in die Leiste, der den Knopf nach rechts schiebt */
+.toolbar.bottom.add { justify-content: center !important; gap: 8px !important; padding-block: 14px !important; }
+.toolbar.bottom.add > .spacer, .toolbar.bottom.add > [class*="spacer"] { display: none !important; }
+/* den kleinen „Einfügen“-Knopf an den Rand, damit „+ Baustein hinzufügen“ genau in der Mitte steht */
+.toolbar.bottom.add:has(> button[data-label*="Baustein"]) { position: relative !important; }
+.toolbar.bottom.add:has(> button[data-label*="Baustein"]) > button:not([data-label*="Baustein"]) { position: absolute !important; right: 4px; top: 50%; transform: translateY(-50%); }
+button[data-label*="Baustein"] {
+  background: var(--blau) !important; color: #fff !important; border-color: var(--blau) !important; font-weight: 700 !important;
+  font-size: 16px !important; min-height: 44px !important; padding: 10px 26px !important; border-radius: 999px !important;
+  box-shadow: 0 4px 12px rgba(29, 63, 154, .25);
+}
 
 /* ---- Bunte Bausteine: Farbe und Icon je Typ ---- */
 .item:has([data-typed-key-path*="<text>"]) { --baustein: #6b7486; --icon: "notes"; }
@@ -79,9 +89,18 @@ button[data-label*="Baustein"] { background: var(--blau) !important; color: #fff
 
 /* ---- Eintrag: erst schreiben, dann der Block „Angaben“ ----
    Paare stehen nebeneinander, die Karte ist kleiner; auf schmalen Bildschirmen wieder untereinander. */
-div:has(> section.field[data-key-path="datum"]) { display: flex !important; flex-wrap: wrap !important; column-gap: 20px !important; align-items: flex-start; }
+div:has(> section.field[data-key-path="datum"]) { display: flex !important; flex-wrap: wrap !important; column-gap: 0 !important; align-items: stretch; }
 div:has(> section.field[data-key-path="datum"]) > * { flex: 1 1 100%; min-width: 0; }
-div:has(> section.field[data-key-path="datum"]) > section.field:is([data-key-path="datum"], [data-key-path="reise"], [data-key-path="ort"], [data-key-path="land"], [data-key-path="uhrzeit"], [data-key-path="wetter"]) { flex: 1 1 calc(50% - 10px) !important; }
+div:has(> section.field[data-key-path="datum"]) > section.field:is([data-key-path="datum"], [data-key-path="reise"], [data-key-path="ort"], [data-key-path="land"], [data-key-path="uhrzeit"], [data-key-path="wetter"]) { flex: 1 1 calc(50% - 22px) !important; }
+/* Angaben als Karten wie die Bausteine: Rand links und leichte Tönung in der Farbe des Bereichs, Abstand zum Rand */
+div:has(> section.field[data-key-path="datum"]) > section.field:is([data-key-path="datum"], [data-key-path="reise"], [data-key-path="ort"], [data-key-path="land"], [data-key-path="karte"], [data-key-path="uhrzeit"], [data-key-path="wetter"], [data-key-path="titelbild"], [data-key-path="galerie"], [data-key-path="vorlesen"], [data-key-path="entwurf"]) {
+  background: color-mix(in srgb, var(--feld) 6%, transparent) !important; border-left: 5px solid var(--feld) !important;
+  border-radius: 10px !important; padding: 12px 14px !important; margin: 6px 16px !important;
+}
+/* Paare: links und rechts bündig mit den Bausteinen, 12 px Abstand dazwischen */
+div:has(> section.field[data-key-path="datum"]) > section.field:is([data-key-path="datum"], [data-key-path="ort"], [data-key-path="uhrzeit"]) { margin: 6px 6px 6px 16px !important; }
+div:has(> section.field[data-key-path="datum"]) > section.field:is([data-key-path="reise"], [data-key-path="land"], [data-key-path="wetter"]) { margin: 6px 16px 6px 6px !important; }
+div:has(> section.field[data-key-path="datum"]) > section.field:is([data-key-path="datum"], [data-key-path="reise"], [data-key-path="ort"], [data-key-path="land"], [data-key-path="karte"], [data-key-path="uhrzeit"], [data-key-path="wetter"], [data-key-path="titelbild"], [data-key-path="galerie"], [data-key-path="vorlesen"], [data-key-path="entwurf"])::after { display: none !important; }
 section.field[data-key-path="karte"] .leaflet-container { height: 170px !important; }
 /* Kopf vor den Angaben (Sveltia nutzt ::after selbst als Trennlinie, deshalb überall !important) */
 section.field[data-key-path="ganz_persoenlich"]::after {
@@ -94,4 +113,6 @@ section.field[data-key-path="ganz_persoenlich"]::after {
 @media (max-width: 600px) {
   /* gleicher Selektor wie oben, damit diese Regel gewinnt */
   div:has(> section.field[data-key-path="datum"]) > section.field:is([data-key-path="datum"], [data-key-path="reise"], [data-key-path="ort"], [data-key-path="land"], [data-key-path="uhrzeit"], [data-key-path="wetter"]) { flex-basis: 100% !important; }
+  /* auf dem Handy rückt Sveltia die Bausteine nur 12 px ein */
+  div:has(> section.field[data-key-path="datum"]) > section.field:is([data-key-path="datum"], [data-key-path="reise"], [data-key-path="ort"], [data-key-path="land"], [data-key-path="karte"], [data-key-path="uhrzeit"], [data-key-path="wetter"], [data-key-path="titelbild"], [data-key-path="galerie"], [data-key-path="vorlesen"], [data-key-path="entwurf"]) { margin: 6px 12px !important; }
 }
