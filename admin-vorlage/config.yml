@@ -30,6 +30,8 @@ collections:
     fields:
       - { label: Titel, name: titel, widget: string }
       - { label: Datum, name: datum, widget: datetime, format: 'YYYY-MM-DD', date_format: 'DD.MM.YYYY', time_format: false }
+      # Einträge mit Reise sind Stationen dieser Reise (Reihenfolge nach Datum), ohne Reise einzelne Tagebuch-Einträge.
+      - { label: Gehört zur Reise, name: reise, widget: relation, collection: reisen, value_field: '{{slug}}', search_fields: [titel], display_fields: ['{{titel}}'], required: false, hint: 'Leer lassen für einen einzelnen Tagebuch-Eintrag. Neue Reisen legst du unter „Reisen“ an.' }
       - { label: Ort, name: ort, widget: string, hint: 'z. B. Lissabon' }
       - { label: Land, name: land, widget: string, hint: 'auf Deutsch, z. B. Portugal' }
       # Karte statt Zahlenfelder. decimals: 2 = ca. 1 km genau, damit z. B. die Unterkunft nicht erkennbar ist.
@@ -74,6 +76,20 @@ collections:
       - { label: 'Ort auf der Karte (nur falls ohne Eintrag)', name: karte, widget: map, decimals: 2, center: [10, 48], zoom: 4, required: false }
       - { label: Gedicht, name: body, widget: text, hint: 'Jede Zeile in eine eigene Zeile, Strophen durch eine Leerzeile trennen.' }
       - { label: 'Entwurf (noch nicht veröffentlichen)', name: entwurf, widget: boolean, default: false, required: false }
+
+  # Reisen: fassen Einträge zu Stationen zusammen. Zeitraum und Strecke ergeben sich aus den Stationen.
+  - name: reisen
+    label: Reisen
+    label_singular: Reise
+    folder: reisen
+    create: true
+    identifier_field: titel
+    slug: '{{slug}}'
+    summary: '{{titel}}'
+    fields:
+      - { label: Titel, name: titel, widget: string, hint: 'z. B. Marokko & Iberien' }
+      - { label: Kurzbeschreibung, name: beschreibung, widget: text, required: false }
+      - { label: Titelbild, name: titelbild, widget: image, required: false }
 
   # Einstellungen: einzelne Dateien statt Listen. Die Angaben stehen öffentlich im Impressum.
   - name: einstellungen

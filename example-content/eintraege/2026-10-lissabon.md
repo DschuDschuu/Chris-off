@@ -1,6 +1,7 @@
 ---
 titel: Wo die Straßenbahn bergauf singt
 datum: 2026-10-18
+reise: marokko-iberien-2026
 ort: Lissabon
 land: Portugal
 breite: 38.7139

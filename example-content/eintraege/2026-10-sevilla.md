@@ -1,6 +1,7 @@
 ---
 titel: Orangenbäume und ein zu langer Mittag
 datum: 2026-10-02
+reise: marokko-iberien-2026
 ort: Sevilla
 land: Spanien
 karte: '{"type":"Point","coordinates":[-5.98,37.39]}'

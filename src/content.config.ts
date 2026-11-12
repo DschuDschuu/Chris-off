@@ -40,6 +40,7 @@ const eintraege = defineCollection({
       ort: z.string(),
       land: z.string(),
       ...ortsFelder,
+      reise: z.string().optional().nullable(), // Verweis auf eine Reise (Dateiname/Slug), leer = Tagebuch
       titelbild: z.string().optional().nullable(),
       galerie: z.array(z.object({ bild: z.string(), text: z.string().optional().nullable() })).default([]),
       lieder: z.array(z.object({ youtube: z.string(), titel: z.string().optional().nullable() })).default([]),
@@ -80,6 +81,16 @@ const gedichte = defineCollection({
     }),
 });
 
+// Reisen fassen Einträge zu Stationen zusammen (Einträge verweisen per „reise“ auf sie).
+const reisen = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: `${basis}/reisen` }),
+  schema: z.object({
+    titel: z.string(),
+    beschreibung: z.string().optional().nullable(),
+    titelbild: z.string().optional().nullable(),
+  }),
+});
+
 // Impressum-Angaben, die Christoph im Editor unter „Einstellungen → Impressum & Kontakt“ pflegt.
 // Alles optional: fehlt etwas, zeigt die Impressum-Seite einen Hinweis statt den Bau abzubrechen.
 const einstellungen = defineCollection({
@@ -93,4 +104,4 @@ const einstellungen = defineCollection({
   }),
 });
 
-export const collections = { eintraege, gedichte, einstellungen };
+export const collections = { eintraege, gedichte, reisen, einstellungen };

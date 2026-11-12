@@ -1,18 +1,22 @@
 ---
 import { render } from 'astro:content';
 import Base from '../layouts/Base.astro';
-import { alleEintraege, datumDE, koord, auszug, lesezeit } from '../lib/daten';
+import { alleEintraege, reisenMitStationen, stationVon, datumDE, koord, auszug, lesezeit } from '../lib/daten';
 
 export async function getStaticPaths() {
   const alle = await alleEintraege();
+  const reisen = await reisenMitStationen();
   // Liste ist neueste zuerst: "vorheriger Ort" = älterer Eintrag, "nächster Ort" = neuerer
   return alle.map((e, i) => ({
     params: { slug: e.id },
-    props: { e, vorher: alle[i + 1] ?? null, nachher: alle[i - 1] ?? null },
+    props: { e, vorher: alle[i + 1] ?? null, nachher: alle[i - 1] ?? null, station: stationVon(reisen, e.id) },
   }));
 }
 
-const { e, vorher, nachher } = Astro.props;
+const { e, vorher, nachher, station } = Astro.props;
+// Unten blättern: innerhalb einer Reise von Station zu Station, am Anfang/Ende der Reise und bei Tagebuch-Einträgen nach Datum
+const links = station?.vorher ? { e: station.vorher, label: '← Vorherige Station' } : vorher ? { e: vorher, label: '← Vorheriger Ort' } : null;
+const rechts = station?.nachher ? { e: station.nachher, label: 'Nächste Station →' } : nachher ? { e: nachher, label: 'Nächster Ort →' } : null;
 const d = e.data;
 const { Content } = await render(e);
 const lieder = d.lieder.map((l) => ({ youtube: l.youtube, titel: l.titel || '' }));
@@ -47,6 +51,7 @@ const minuten = lesezeit(e.body);
 
       <header class="art-head">
         <p class="eyebrow">{datumDE(d.datum)} · {d.ort}, {d.land}</p>
+        {station && <p class="reise-zeile">✈ Reise „{station.reise.titel}“ · Station {station.nr} von {station.von}</p>}
         <h1>{d.titel}</h1>
         <p class="mono">{koord(d.breite, d.laenge)}</p>
         <p class="stats" style="margin-top:6px">
@@ -75,8 +80,8 @@ const minuten = lesezeit(e.body);
       )}
 
       <nav class="artnav" aria-label="Weitere Einträge">
-        {vorher ? <a href={`/${vorher.id}/`}><span class="mono">← Vorheriger Ort</span><span class="an-t">{vorher.data.ort}: {vorher.data.titel}</span></a> : <span></span>}
-        {nachher ? <a class="next" href={`/${nachher.id}/`}><span class="mono">Nächster Ort →</span><span class="an-t">{nachher.data.ort}: {nachher.data.titel}</span></a> : <span></span>}
+        {links ? <a href={`/${links.e.id}/`}><span class="mono">{links.label}</span><span class="an-t">{links.e.data.ort}: {links.e.data.titel}</span></a> : <span></span>}
+        {rechts ? <a class="next" href={`/${rechts.e.id}/`}><span class="mono">{rechts.label}</span><span class="an-t">{rechts.e.data.ort}: {rechts.e.data.titel}</span></a> : <span></span>}
       </nav>
       <div class="artend"><a class="btn" href={`/#${e.id}`}>← Zurück zur Weltkugel</a><span class="lg"><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a></span></div>
     </article>

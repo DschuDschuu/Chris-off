@@ -1,6 +1,7 @@
 ---
 titel: Der Lärm, der irgendwann Musik wird
 datum: 2026-09-14
+reise: marokko-iberien-2026
 ort: Marrakesch
 land: Marokko
 breite: 31.6295

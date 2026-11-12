@@ -11,6 +11,10 @@ export async function startGlobus(cfg = {}) {
   const DATA = JSON.parse($('#tb-daten').textContent);
   const ENTRIES = DATA.eintraege, POEMS = DATA.gedichte;
   const EBY = Object.fromEntries(ENTRIES.map((e) => [e.id, e]));
+  // Reisen: Stationen in Reihenfolge (Station 1 = erste). Einträge ohne Reise sind Tagebuch.
+  const REISEN = (DATA.reisen || []).map((r) => ({ ...r, st: r.stationen.map((id) => EBY[id]).filter(Boolean) })).filter((r) => r.st.length);
+  const RIDX = Object.fromEntries(REISEN.map((r, i) => [r.id, i]));
+  for (const r of REISEN) r.st.forEach((e, i) => { e.nr = i + 1; e.von = r.st.length; e.reiseTitel = r.titel; });
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const cv = $('#globe'), ctx = cv.getContext('2d');
   const toastEl = $('#toast');
@@ -42,7 +46,8 @@ export async function startGlobus(cfg = {}) {
     return geoCircle().center([lon + 180, -decl]).radius(90)();
   }
   let night = nightCircle(); setInterval(() => (night = nightCircle()), 60000);
-  const route = { type: 'LineString', coordinates: ENTRIES.slice().reverse().map((e) => [e.lon, e.lat]) };
+  // Spur (Fußspuren, Nebel entlang der Route) nur zwischen Stationen derselben Reise: [von, nach, Reise-Index]
+  const routeSegsLL = REISEN.flatMap((r, t) => r.st.slice(1).map((e, i) => [[r.st[i].lon, r.st[i].lat], [e.lon, e.lat], t]));
 
   /* ---------- Fog of War ---------- */
   const EARTH = 6371, REV_KM = cfg.nebel?.radiusKm ?? 150, HW_KM = cfg.nebel?.routeKm ?? 40, HW = HW_KM / EARTH;
@@ -72,8 +77,8 @@ export async function startGlobus(cfg = {}) {
   const toV3 = ([lo, la]) => { const a = (la * Math.PI) / 180, b = (lo * Math.PI) / 180; return [Math.cos(a) * Math.cos(b), Math.cos(a) * Math.sin(b), Math.sin(a)]; };
   const entV = ENTRIES.map((e) => toV3([e.lon, e.lat])), REVr = REV_KM / EARTH, FEA = REVr * 0.6, cosOut = Math.cos(REVr + FEA), FEH = HW * 1.6;
   const segs = [];
-  for (let i = 1; i < route.coordinates.length; i++) {
-    const A = toV3(route.coordinates[i - 1]), B = toV3(route.coordinates[i]);
+  for (const [a, b] of routeSegsLL) {
+    const A = toV3(a), B = toV3(b);
     const n = [A[1] * B[2] - A[2] * B[1], A[2] * B[0] - A[0] * B[2], A[0] * B[1] - A[1] * B[0]], l = Math.hypot(n[0], n[1], n[2]);
     if (l > 1e-9) segs.push([A, B, n.map((v) => v / l)]);
   }
@@ -113,7 +118,7 @@ export async function startGlobus(cfg = {}) {
   function exploredArea() {
     if (!ENTRIES.length) return 0;
     const cosR = Math.cos(REVr), cosH = Math.cos(HW), rpts = [];
-    for (let i = 1; i < route.coordinates.length; i++) { const a = route.coordinates[i - 1], b = route.coordinates[i], n = Math.max(1, Math.ceil((geoDistance(a, b) * EARTH) / 12)), ip = geoInterpolate(a, b); for (let j = 0; j <= n; j++) rpts.push(toV3(ip(j / n))); }
+    for (const [a, b] of routeSegsLL) { const n = Math.max(1, Math.ceil((geoDistance(a, b) * EARTH) / 12)), ip = geoInterpolate(a, b); for (let j = 0; j <= n; j++) rpts.push(toV3(ip(j / n))); }
     const REV = (REV_KM / EARTH) * (180 / Math.PI), lats = ENTRIES.map((e) => e.lat), lons = ENTRIES.map((e) => e.lon), pad = REV + 1;
     const la0 = Math.max(-89, Math.min(...lats) - pad), la1 = Math.min(89, Math.max(...lats) + pad), lo0 = Math.min(...lons) - pad * 2.5, lo1 = Math.max(...lons) + pad * 2.5, st = 0.08;
     let area = 0; const cell = ((st * Math.PI) / 180) ** 2 * EARTH * EARTH;
@@ -269,19 +274,27 @@ export async function startGlobus(cfg = {}) {
   }
 
   /* ---------- Fußspuren ---------- */
-  const routeSegsLL = []; for (let i = 1; i < route.coordinates.length; i++) routeSegsLL.push([route.coordinates[i - 1], route.coordinates[i]]);
   const FS0 = 6 / EARTH, STEPS = (() => {
-    const out = [], cum = [0]; for (const [a, b] of routeSegsLL) cum.push(cum[cum.length - 1] + geoDistance(a, b)); const D = cum[cum.length - 1]; if (!D) return out;
-    for (let j = 0; j * FS0 <= D; j++) { const d = j * FS0; let si = 0; while (si < routeSegsLL.length - 1 && cum[si + 1] < d) si++; const [a, b] = routeSegsLL[si], L = cum[si + 1] - cum[si] || 1e-9, ip = geoInterpolate(a, b), f = Math.min(1, (d - cum[si]) / L); out.push({ q: ip(f), q2: ip(Math.min(1, f + 0.002)), q0: f > 0.998 ? ip(f - 0.002) : null, along: d / D }); }
+    // je Reise eine eigene Spur; along = Fortschritt 0…1 innerhalb der Reise, t = Reise-Index
+    const out = [];
+    REISEN.forEach((r, t) => {
+      const S = routeSegsLL.filter((sg) => sg[2] === t), cum = [0];
+      for (const [a, b] of S) cum.push(cum[cum.length - 1] + geoDistance(a, b)); const D = cum[cum.length - 1]; if (!D) return;
+      for (let j = 0; j * FS0 <= D; j++) { const d = j * FS0; let si = 0; while (si < S.length - 1 && cum[si + 1] < d) si++; const [a, b] = S[si], L = cum[si + 1] - cum[si] || 1e-9, ip = geoInterpolate(a, b), f = Math.min(1, (d - cum[si]) / L); out.push({ q: ip(f), q2: ip(Math.min(1, f + 0.002)), q0: f > 0.998 ? ip(f - 0.002) : null, along: d / D, t }); }
+    });
     return out;
   })();
+  // Reise, deren Spur hervorgehoben wird: Startseite = Reise der offenen Postkarte, Lesemodus = Reise des Eintrags
+  const hlTrip = () => { const e = modus === 'home' ? cardE : active; return e && e.reise != null && RIDX[e.reise] !== undefined ? RIDX[e.reise] : null; };
+  const HL_COLOR = '#ec8a1e';
   let stepLvl = null, stepPrev = null, stepFadeT = 0;
-  function drawStepLevel(L, mul, now, Rr, center, k) {
+  function drawStepLevel(L, mul, now, Rr, center, k, hl, base) {
     const step = 1 << L, phase = reduce ? -1 : (now / 1000 / 10) % 1;
     for (let j = 0; j < STEPS.length; j += step) {
       const s = STEPS[j]; if (geoDistance(s.q, center) > 1.48) continue; const [x, y] = proj(s.q); if (x < -20 || y < -20 || x > w + 20 || y > h + 20) continue;
       let ang; if (s.q0) { const [x0, y0] = proj(s.q0); ang = Math.atan2(y - y0, x - x0); } else { const [x2, y2] = proj(s.q2); ang = Math.atan2(y2 - y, x2 - x); }
       const side = (j >> L) & 1 ? 1 : -1; let al = 0.62; if (phase >= 0) { const dd = (((s.along - phase) % 1) + 1.5) % 1 - 0.5; if (dd <= 0 && dd > -0.1) al = 0.62 + 0.38 * (1 + dd / 0.1); else if (dd > 0 && dd < 0.012) al = 1; }
+      if (hl !== null) { const mine = s.t === hl; ctx.fillStyle = mine ? HL_COLOR : base; al = mine ? Math.min(1, al * 1.4) : al * 0.35; }
       ctx.globalAlpha = al * mul; ctx.save(); ctx.translate(x - Math.sin(ang) * side * 1.15 * k, y + Math.cos(ang) * side * 1.15 * k); ctx.rotate(ang); ctx.scale(k, k);
       ctx.beginPath(); ctx.ellipse(1.5, side * 0.15, 2.7, 1.55, side * 0.06, 0, 7); ctx.fill(); ctx.beginPath(); ctx.ellipse(-2.9, 0, 1.45, 1.25, 0, 0, 7); ctx.fill(); ctx.restore();
     }
@@ -291,8 +304,8 @@ export async function startGlobus(cfg = {}) {
     if (stepLvl === null) stepLvl = Math.max(0, Math.round(lv));
     else if (Math.abs(lv - stepLvl) > 0.8) { const nl = Math.max(0, Math.round(lv)); if (nl !== stepLvl) { stepPrev = stepLvl; stepLvl = nl; stepFadeT = now; } }
     const fade = stepPrev === null ? 1 : Math.min(1, (now - stepFadeT) / 350);
-    ctx.fillStyle = G.route; drawStepLevel(stepLvl, fade, now, Rr, center, k);
-    if (stepPrev !== null) { if (fade >= 1) stepPrev = null; else drawStepLevel(stepPrev, 1 - fade, now, Rr, center, k); }
+    const hl = hlTrip(); ctx.fillStyle = G.route; drawStepLevel(stepLvl, fade, now, Rr, center, k, hl, G.route);
+    if (stepPrev !== null) { if (fade >= 1) stepPrev = null; else drawStepLevel(stepPrev, 1 - fade, now, Rr, center, k, hl, G.route); }
     ctx.globalAlpha = 1;
   }
 
@@ -468,8 +481,9 @@ export async function startGlobus(cfg = {}) {
   function openCard(e) {
     cardE = e;
     $('#pcImg').src = e.bild || ''; $('#pcImg').alt = `Titelbild: ${e.ort}`; $('#pcImg').hidden = !e.bild;
-    $('#pcEyebrow').textContent = e === ENTRIES[0] ? 'Neuester Eintrag' : vorEinemJahr.includes(e) ? 'Heute vor einem Jahr' : 'Eintrag';
-    $('#pcTitle').textContent = e.titel; $('#pcMeta').textContent = `${e.ort} · ${e.datum}`; $('#pcEx').textContent = e.auszug || ''; $('#pcEx').hidden = !e.auszug; $('#pcPm').textContent = e.ort.toUpperCase();
+    const art = e === ENTRIES[0] ? 'Neuester Eintrag' : vorEinemJahr.includes(e) ? 'Heute vor einem Jahr' : 'Eintrag';
+    $('#pcEyebrow').textContent = e.reiseTitel ? (art === 'Eintrag' ? `Reise · ${e.reiseTitel}` : `${art} · Reise ${e.reiseTitel}`) : art;
+    $('#pcTitle').textContent = e.titel; $('#pcMeta').textContent = `${e.ort} · ${e.datum}` + (e.reiseTitel ? ` · Station ${e.nr} von ${e.von}` : ''); $('#pcEx').textContent = e.auszug || ''; $('#pcEx').hidden = !e.auszug; $('#pcPm').textContent = e.ort.toUpperCase();
     $('#pcImgLink').href = e.musik ? e.url + '?musik=1' : e.url; $('#pcHint').textContent = e.musik ? '▶ Mit Musik' : 'Lesen';
     $('#pcActions').innerHTML = (e.musik ? `<a class="pc-btn primary" href="${e.url}?musik=1">▶ Mit Musik lesen</a><a class="pc-btn" href="${e.url}">Lesen</a>` : `<a class="pc-btn primary" href="${e.url}">Eintrag lesen →</a>`) + `<a class="pc-btn" href="${e.url}?vorlesen=1">🔈 Vorlesen</a>`;
     pc.hidden = false; pc.classList.add('away'); pc.classList.remove('pop-in'); void pc.offsetWidth; pc.classList.add('pop-in');
@@ -497,10 +511,13 @@ export async function startGlobus(cfg = {}) {
   $('#letterWrap').addEventListener('click', (ev) => { if (ev.target === $('#letterWrap')) closeLetter(); });
 
   /* ---------- Leiste unten: Statistik, Listen, Extras ---------- */
-  let km = 0; for (let i = 1; i < ENTRIES.length; i++) km += geoDistance([ENTRIES[i - 1].lon, ENTRIES[i - 1].lat], [ENTRIES[i].lon, ENTRIES[i].lat]) * EARTH;
+  let km = 0; for (const [a, b] of routeSegsLL) km += geoDistance(a, b) * EARTH; // nur Strecken innerhalb von Reisen
   const pct = (exploredArea() / (4 * Math.PI * EARTH * EARTH)) * 100;
-  $('#stats').innerHTML = `<span><b>${ENTRIES.length}</b> ${ENTRIES.length === 1 ? 'Ort' : 'Orte'}</span><button class="st-btn" id="ctyBtn" aria-expanded="false" aria-controls="ctyPop"><b>${VISITED.length}</b> ${VISITED.length === 1 ? 'Land' : 'Länder'}</button><span><b>${Math.round(km).toLocaleString('de-DE')} km</b> unterwegs</span><span><b>${pct.toLocaleString('de-DE', { maximumFractionDigits: 2 })} %</b> der Welt entdeckt</span>`;
-  $('#entryList').innerHTML = ENTRIES.map((e) => `<li><button data-id="${esc(e.id)}"><span>${esc(e.ort)}<span class="d"> · ${esc(e.land)}</span></span><span class="d">${esc(e.datum)}</span></button></li>`).join('');
+  $('#stats').innerHTML = `<span><b>${ENTRIES.length}</b> ${ENTRIES.length === 1 ? 'Ort' : 'Orte'}</span><button class="st-btn" id="ctyBtn" aria-expanded="false" aria-controls="ctyPop"><b>${VISITED.length}</b> ${VISITED.length === 1 ? 'Land' : 'Länder'}</button><span${km > 0 ? '' : ' hidden'}><b>${Math.round(km).toLocaleString('de-DE')} km</b> unterwegs</span><span><b>${pct.toLocaleString('de-DE', { maximumFractionDigits: 2 })} %</b> der Welt entdeckt</span>`;
+  // Liste: Reisen als Gruppe mit ihren Stationen (1, 2, 3 …), dazwischen einzelne Tagebuch-Einträge; neueste zuerst
+  const eintragLi = (e, nr) => `<li><button data-id="${esc(e.id)}"><span>${nr ? `<span class="d">${e.nr}.</span> ` : ''}${esc(e.ort)}<span class="d"> · ${esc(e.land)}</span></span><span class="d">${esc(e.datum)}</span></button></li>`;
+  const gruppen = []; for (const e of ENTRIES) { const r = e.reise != null ? REISEN[RIDX[e.reise]] : null; if (!r) gruppen.push({ e }); else if (!gruppen.some((g) => g.r === r)) gruppen.push({ r }); }
+  $('#entryList').innerHTML = gruppen.map((g) => (g.e ? eintragLi(g.e, false) : `<li class="trip"><p class="trip-h"><span>✈ ${esc(g.r.titel)}</span><span class="d">${esc(g.r.zeitraum)} · ${g.r.st.length} ${g.r.st.length === 1 ? 'Station' : 'Stationen'}</span></p><ul>${g.r.st.map((e) => eintragLi(e, true)).join('')}</ul></li>`)).join('');
   $('#entryList').addEventListener('click', (ev) => { const b = ev.target.closest('button'); if (!b) return; select(EBY[b.dataset.id]); $('#entryPop').hidden = true; $('#listBtn').setAttribute('aria-expanded', 'false'); });
   $('#listBtn').onclick = () => { const p = $('#entryPop'); p.hidden = !p.hidden; $('#listBtn').setAttribute('aria-expanded', String(!p.hidden)); };
   $('#skipList').onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); $('#entryPop').hidden = false; $('#listBtn').setAttribute('aria-expanded', 'true'); $('#entryList button')?.focus(); };

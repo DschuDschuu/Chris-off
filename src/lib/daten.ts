@@ -45,6 +45,37 @@ export function findeEintrag<T extends { id: string }>(liste: T[], ref?: string 
   return liste.find((e) => norm(e.id) === r);
 }
 
+// Zeitraum als Monate, z. B. „Oktober 2026“, „September – Oktober 2026“, „Dezember 2025 – Januar 2026“
+export function zeitraumDE(von: Date, bis: Date) {
+  const m = (d: Date, mitJahr: boolean) => d.toLocaleDateString('de-DE', { month: 'long', ...(mitJahr ? { year: 'numeric' } : {}), timeZone: 'UTC' });
+  const gleichesJahr = von.getUTCFullYear() === bis.getUTCFullYear();
+  if (gleichesJahr && von.getUTCMonth() === bis.getUTCMonth()) return m(bis, true);
+  return `${m(von, !gleichesJahr)} – ${m(bis, true)}`;
+}
+
+// Reisen mit ihren veröffentlichten Stationen, Stationen nach Datum aufsteigend (Station 1 = erste).
+// Reisen ohne veröffentlichte Station fallen weg. Einträge mit unbekannter Reise gelten als Tagebuch.
+export async function reisenMitStationen() {
+  const [R, E] = await Promise.all([getCollection('reisen'), alleEintraege()]);
+  return R.map((r) => {
+    const stationen = E.filter((e) => e.data.reise && norm(e.data.reise) === norm(r.id)).sort((x, y) => x.data.datum.getTime() - y.data.datum.getTime());
+    return { id: r.id, titel: r.data.titel, beschreibung: r.data.beschreibung ?? null, stationen };
+  })
+    .filter((r) => r.stationen.length > 0)
+    .map((r) => ({ ...r, zeitraum: zeitraumDE(r.stationen[0].data.datum, r.stationen[r.stationen.length - 1].data.datum) }));
+}
+
+type ReiseListe = Awaited<ReturnType<typeof reisenMitStationen>>;
+
+// Zu welcher Reise gehört ein Eintrag, und die wievielte Station ist er? null = Tagebuch-Eintrag.
+export function stationVon(reisen: ReiseListe, eintragId: string) {
+  for (const reise of reisen) {
+    const i = reise.stationen.findIndex((s) => s.id === eintragId);
+    if (i >= 0) return { reise, nr: i + 1, von: reise.stationen.length, vorher: reise.stationen[i - 1] ?? null, nachher: reise.stationen[i + 1] ?? null };
+  }
+  return null;
+}
+
 // Gedicht-Text: Strophen durch Leerzeilen, Zeilen durch Zeilenumbrüche getrennt
 export const strophen = (body = '') =>
   body.trim().split(/\n\s*\n/).map((s) => s.split('\n').map((z) => z.trim()).filter(Boolean)).filter((s) => s.length);
@@ -53,8 +84,10 @@ export const strophen = (body = '') =>
 export async function globusDaten() {
   const E = await alleEintraege();
   const P = await alleGedichte();
+  const R = await reisenMitStationen();
   const eintraege = E.map((e) => ({
     id: e.id,
+    reise: stationVon(R, e.id)?.reise.id ?? null,
     titel: e.data.titel,
     ort: e.data.ort,
     land: e.data.land,
@@ -81,7 +114,9 @@ export async function globusDaten() {
       url: `/gedichte/${p.id}/`,
     };
   }).filter((g) => Number.isFinite(g.lat) && Number.isFinite(g.lon));
-  return { eintraege, gedichte };
+  // Reisen: Titel, Zeitraum und die Stationen in Reihenfolge (nur IDs, Rest steht bei den Einträgen)
+  const reisen = R.map((r) => ({ id: r.id, titel: r.titel, zeitraum: r.zeitraum, stationen: r.stationen.map((s) => s.id) }));
+  return { eintraege, gedichte, reisen };
 }
 
 // JSON sicher in <script type="application/json"> einbetten

@@ -36,6 +36,7 @@ CONTENT_DIR=../tagebuch-inhalte npm run dev   # mit echten Inhalten
 - `src/lib/remark-tagebuch.mjs` – `[[Lied 2]]` → `.liedwechsel`, allein stehende Bilder → `<figure>`, externe Links → `data-rahmen`.
 - `admin-vorlage/config.yml` – Editor-Felder; `__REPO__`/`__URL__` werden in `prepare.mjs` ersetzt. Der Ort ist ein Karten-Feld `karte` (GeoJSON-Punkt als Text, erst Länge, dann Breite).
 - `src/content.config.ts` – Schema der Inhalte. Macht aus `karte` die Felder `breite`/`laenge`, die Globus und Seiten benutzen; ältere Einträge mit `breite`/`laenge` gelten weiter. Fehlt der Ort, bricht der Bau mit Hinweis ab.
+- Reisen: Sammlung `reisen/` im Inhalts-Repo (Titel, Kurzbeschreibung, Titelbild); Einträge verweisen per Feld `reise` darauf und sind dann Stationen (Reihenfolge nach Datum). Einträge ohne Reise sind Tagebuch. `reisenMitStationen()`/`stationVon()` in `src/lib/daten.ts`; unbekannte Reise = Tagebuch, Reisen ohne veröffentlichte Station werden nicht gezeigt.
 - Impressum-Angaben: im Inhalts-Repo `einstellungen/rechtliches.md` (Editor: „Einstellungen → Impressum & Kontakt“), gelesen über `src/lib/rechtliches.ts` für Impressum und Datenschutz. Fehlt etwas, zeigt das Impressum Platzhalter und einen Hinweis; der Bau läuft weiter. Bewusst nicht im Code-Repo, damit Christophs Anschrift nicht im öffentlichen Code steht.
 - `site.config.mjs` – Titel, Globus-Stil (`hell` aktiv), Nebel-Radius 25 km / Route 10 km (bewusst klein: „erkundet“ heißt wirklich dort gewesen), Gedichte `mix`.
 
@@ -44,6 +45,7 @@ CONTENT_DIR=../tagebuch-inhalte npm run dev   # mit echten Inhalten
 - Helles Theme; Postkarte im klassischen Luftpost-Stil (rot/blau gestreift, „PAR AVION“, Stempel). Postkarte erscheint am Punkt auf dem Globus mit Verbindungslinie, weicht Pins und Flaschenpost aus.
 - Fog of War als echte, ziehende Nebelschwaden; frei um jeden Ort und entlang der Route.
 - Route als Fußspuren: klein, links/rechts eng beieinander (wirkt wie eine Linie), geo-verankert mit Detailstufen und Überblendung beim Zoomen.
+- Reisen und Tagebuch: Fußspuren (und Nebel entlang der Route, „km unterwegs“) nur zwischen Stationen derselben Reise; Tagebuch-Einträge sind einzelne Pins. Klick auf eine Station hebt die Spur ihrer Reise orange hervor, Postkarte zeigt „Reise · Titel“ und „Station x von y“. Kein eigener Reiter: „Alle Einträge“ gruppiert Stationen unter ihrer Reise. Eintragsseite: „Station x von y“, unten Weiter/Zurück innerhalb der Reise.
 - Gedichte: an der Küste Flaschenpost (erst beim Hineinzoomen sichtbar), sonst Papierflieger im Orbit. Klick faltet einen Luftpost-Brief auf. Keine Federn.
 - Klick auf Ort: Zoom aufs Land + Leiste „x % erkundet“. Button „Ganze Weltkugel zeigen“ beim Zoomen.
 - Statistik-Leiste nur in der Weltansicht. „Alle Einträge“ listet nur Texte, keine Gedichte.
