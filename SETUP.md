@@ -106,8 +106,6 @@ Ab jetzt baut jeder Merge auf `main` die Seite neu.
 
 ## 10. Vor dem Start
 
-- [ ] Impressum ausfüllen: im Editor unter „Einstellungen → Impressum & Kontakt“ (Christoph)
-- [ ] Datenschutztext prüfen (`src/pages/datenschutz.astro`)
 - [ ] Beispiel-Einträge im Editor löschen
 - [ ] `site.config.mjs`: Titel, Untertitel, Name
 - [ ] Einmal einen Eintrag mit „Ganz persönlich“ speichern und prüfen, dass der Text nicht auf der Seite steht

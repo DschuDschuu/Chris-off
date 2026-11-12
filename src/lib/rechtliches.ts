@@ -1,5 +1,7 @@
 import { getEntry } from 'astro:content';
 
+// Derzeit ungenutzt: Impressum und Datenschutz wurden entfernt (Seite gilt als privat).
+// Zum Wiedereinbauen: Seiten src/pages/impressum.astro und datenschutz.astro aus der Git-Geschichte holen.
 // Impressum-Angaben für Impressum und Datenschutz. Fehlende Felder werden durch sichtbare
 // Platzhalter ersetzt, damit eine unvollständige Angabe auffällt, aber den Bau nicht stoppt.
 export async function rechtliches() {

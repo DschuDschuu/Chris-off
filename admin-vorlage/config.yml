@@ -91,16 +91,17 @@ collections:
       - { label: Kurzbeschreibung, name: beschreibung, widget: text, required: false }
       - { label: Titelbild, name: titelbild, widget: image, required: false }
 
-  # Einstellungen: einzelne Dateien statt Listen. Die Angaben stehen öffentlich im Impressum.
+  # Einstellungen: einzelne Dateien statt Listen. Impressum-Angaben werden derzeit nirgends angezeigt (Seite gilt als privat),
+  # bleiben aber gepflegt, falls das Impressum wieder eingebaut wird (siehe src/lib/rechtliches.ts).
   - name: einstellungen
     label: Einstellungen
     files:
       - name: rechtliches
-        label: Impressum & Kontakt
+        label: Impressum & Kontakt (derzeit nicht auf der Seite)
         file: einstellungen/rechtliches.md
         fields:
           - { label: 'Vor- und Nachname', name: name, widget: string, required: false }
           - { label: 'Straße und Hausnummer', name: strasse, widget: string, required: false }
           - { label: 'PLZ und Ort', name: ort, widget: string, required: false }
-          - { label: 'E-Mail', name: email, widget: string, required: false, hint: 'Steht öffentlich im Impressum.' }
+          - { label: 'E-Mail', name: email, widget: string, required: false, hint: 'Wird derzeit nicht auf der Seite angezeigt.' }
           - { label: 'Telefon (freiwillig)', name: telefon, widget: string, required: false }

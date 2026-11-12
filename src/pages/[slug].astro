@@ -83,7 +83,7 @@ const minuten = lesezeit(e.body);
         {links ? <a href={`/${links.e.id}/`}><span class="mono">{links.label}</span><span class="an-t">{links.e.data.ort}: {links.e.data.titel}</span></a> : <span></span>}
         {rechts ? <a class="next" href={`/${rechts.e.id}/`}><span class="mono">{rechts.label}</span><span class="an-t">{rechts.e.data.ort}: {rechts.e.data.titel}</span></a> : <span></span>}
       </nav>
-      <div class="artend"><a class="btn" href={`/#${e.id}`}>← Zurück zur Weltkugel</a><span class="lg"><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a></span></div>
+      <div class="artend"><a class="btn" href={`/#${e.id}`}>← Zurück zur Weltkugel</a></div>
     </article>
   </div>
 

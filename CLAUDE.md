@@ -17,7 +17,7 @@ Sprache im Projekt: **Deutsch** (UI-Texte, Kommentare, Commit-Messages). Mit Jul
 - `entwurf: true` wird nicht gebaut.
 - `scripts/privat-check.mjs` muss nach jedem Build laufen (`npm run check:privat`) und grün sein. Test-String in `example-content/eintraege/2026-10-lissabon.md`.
 - Fotos: `scripts/prepare.mjs` entfernt alle Metadaten (GPS). YouTube nur nach Zustimmung über youtube-nocookie.com. Keine externen Fonts/CDNs auf der öffentlichen Seite (Ausnahmen nur im Editor auf `/admin`: Sveltia-Script sowie OpenStreetMap-Kacheln und -Ortssuche im Feld „Ort auf der Karte“). Keine Cookies, kein Tracking.
-- Orte werden mit 2 Nachkommastellen gespeichert (ca. 1 km, `decimals: 2` im Editor), damit Unterkünfte nicht erkennbar sind. Die Datenschutzseite verspricht „Orte auf Stadt-Ebene“.
+- Orte werden mit 2 Nachkommastellen gespeichert (ca. 1 km, `decimals: 2` im Editor), damit Unterkünfte nicht erkennbar sind.
 
 ## Befehle
 
@@ -37,7 +37,7 @@ CONTENT_DIR=../tagebuch-inhalte npm run dev   # mit echten Inhalten
 - `admin-vorlage/config.yml` – Editor-Felder; `__REPO__`/`__URL__` werden in `prepare.mjs` ersetzt. Der Ort ist ein Karten-Feld `karte` (GeoJSON-Punkt als Text, erst Länge, dann Breite).
 - `src/content.config.ts` – Schema der Inhalte. Macht aus `karte` die Felder `breite`/`laenge`, die Globus und Seiten benutzen; ältere Einträge mit `breite`/`laenge` gelten weiter. Fehlt der Ort, bricht der Bau mit Hinweis ab.
 - Reisen: Sammlung `reisen/` im Inhalts-Repo (Titel, Kurzbeschreibung, Titelbild); Einträge verweisen per Feld `reise` darauf und sind dann Stationen (Reihenfolge nach Datum). Einträge ohne Reise sind Tagebuch. `reisenMitStationen()`/`stationVon()` in `src/lib/daten.ts`; unbekannte Reise = Tagebuch, Reisen ohne veröffentlichte Station werden nicht gezeigt.
-- Impressum-Angaben: im Inhalts-Repo `einstellungen/rechtliches.md` (Editor: „Einstellungen → Impressum & Kontakt“), gelesen über `src/lib/rechtliches.ts` für Impressum und Datenschutz. Fehlt etwas, zeigt das Impressum Platzhalter und einen Hinweis; der Bau läuft weiter. Bewusst nicht im Code-Repo, damit Christophs Anschrift nicht im öffentlichen Code steht.
+- Impressum-Angaben: Editor „Einstellungen → Impressum & Kontakt“ → `einstellungen/rechtliches.md` im Inhalts-Repo, Schema `einstellungen`, Helfer `src/lib/rechtliches.ts`. Derzeit nirgends angezeigt; Impressum-/Datenschutz-Seiten sind entfernt und liegen in der Git-Geschichte.
 - `site.config.mjs` – Titel, Globus-Stil (`hell` aktiv), Nebel-Radius 25 km / Route 10 km (bewusst klein: „erkundet“ heißt wirklich dort gewesen), Gedichte `mix`.
 
 ## Design-Entscheidungen (aus vielen Feedback-Runden mit Julia – beibehalten)
@@ -56,4 +56,4 @@ CONTENT_DIR=../tagebuch-inhalte npm run dev   # mit echten Inhalten
 
 - Live noch zu prüfen: YouTube-Einbettung, Sveltia-Login, Coolify-Webhook, Domain.
 - Extras: Fotos auf dem Globus, Teilen-Vorschaubild (Postkarte als OG-Bild), schönere PDF-Ausgabe, Vorlese-MP3 automatisch erzeugen, ggf. Filebrowser für große Medien.
-- Datenschutztext ist ein Entwurf (rechtlich prüfen lassen). Impressum-Angaben pflegt Christoph selbst im Editor.
+- Kein Impressum und keine Datenschutzseite: bewusste Entscheidung (Julia/Christoph), die Seite gilt als rein privat. Rechtliche Einordnung bei öffentlich erreichbarer Seite wurde besprochen (§ 18 MStV, DSGVO); bei Werbung/Affiliate oder geänderter Nutzung neu prüfen.

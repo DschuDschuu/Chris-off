@@ -12,7 +12,7 @@ const neuester = eintraege[0];
     <h1 class="sr-only">{site.titel}</h1>
     <div class="dock" id="dock">
       <div class="pop" id="ctyPop" hidden><ul id="ctyList"></ul></div>
-      <div class="pop" id="entryPop" hidden><ul id="entryList"></ul><div class="pop-foot"><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a></div></div>
+      <div class="pop" id="entryPop" hidden><ul id="entryList"></ul></div>
       <p class="stats" id="stats"></p>
       <div class="dock-btns">
         <button class="btn sm" id="listBtn" aria-expanded="false" aria-controls="entryPop">📍 <span class="hide-n">Alle </span>Einträge</button>
@@ -25,7 +25,6 @@ const neuester = eintraege[0];
       <button class="worldbtn" id="worldBtn" hidden>🌍 Ganze Weltkugel zeigen</button>
     </div>
     <div class="zoomctl" role="group" aria-label="Zoom"><button id="zIn" aria-label="Hineinzoomen">+</button><button id="zOut" aria-label="Herauszoomen">−</button><button id="zReset" aria-label="Ansicht zurücksetzen" style="font-size:15px">⟲</button></div>
-    <nav class="legal" aria-label="Rechtliches"><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a></nav>
 
     {/* Ohne JavaScript: einfache Liste aller Einträge */}
     <noscript>

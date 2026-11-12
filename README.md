@@ -40,7 +40,7 @@ CONTENT_DIR=../tagebuch-inhalte npm run dev
 site.config.mjs          Titel, Autor, Globus-Stil, Nebel-Radius, Gedicht-Darstellung
 src/scripts/globus.js    Die Weltkugel (Zeichnen, Fog of War, Fußspuren, Postkarte, Gedichte, Länder-Zoom)
 src/scripts/lesen.js     Eintragsseite: Musik + Liedwechsel, Vorlesen, Galerie, Bilderrahmen-Links
-src/pages/               Startseite, Eintrag ([slug].astro), Gedichte, RSS, Impressum, Datenschutz
+src/pages/               Startseite, Eintrag ([slug].astro), Gedichte, RSS
 src/layouts/Base.astro   Grundgerüst jeder Seite
 src/styles/global.css    Gesamtes Design
 src/lib/daten.ts         Inhalte laden; nur öffentliche Felder gehen an den Browser

@@ -92,7 +92,7 @@ const reisen = defineCollection({
 });
 
 // Impressum-Angaben, die Christoph im Editor unter „Einstellungen → Impressum & Kontakt“ pflegt.
-// Alles optional: fehlt etwas, zeigt die Impressum-Seite einen Hinweis statt den Bau abzubrechen.
+// Derzeit ohne Impressum-Seite (Seite gilt als privat); bleibt, damit es sich leicht wieder einbauen lässt.
 const einstellungen = defineCollection({
   loader: glob({ pattern: 'rechtliches.md', base: `${basis}/einstellungen` }),
   schema: z.object({
