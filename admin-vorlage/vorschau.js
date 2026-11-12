@@ -49,7 +49,7 @@
   function baustein(b, i, getAsset, liedNr) {
     const k = 'b' + i, bild = (src) => (src ? String(getAsset(src)) : '');
     switch (b && b.type) {
-      case 'text': return markdown(b.text, k);
+      case 'text': return b.initiale ? h('div', { key: k, className: 'mit-initiale' }, markdown(b.text, k)) : markdown(b.text, k);
       case 'ueberschrift': return b.text ? h('h2', { key: k }, b.text) : null;
       case 'foto': return b.bild ? h('figure', { key: k }, h('img', { src: bild(b.bild), alt: b.text || '' }), b.text ? h('figcaption', null, b.text) : null) : null;
       case 'streifen': {

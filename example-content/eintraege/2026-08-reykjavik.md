@@ -9,7 +9,10 @@ titelbild: /media/aurora.jpg
 galerie:
   - { bild: /media/aurora.jpg, text: 'Polarlicht über Reykjavík' }
 entwurf: false
----
-Beispiel-Eintrag. Hier steht später Christophs Text über Reykjavík.
+inhalt:
+  - type: text
+    text: |-
+      Beispiel-Eintrag. Hier steht später Christophs Text über Reykjavík.
 
-Dieser Eintrag ist nur ein Platzhalter, damit Globus, Route und Statistik etwas zu zeigen haben.
+      Dieser Eintrag ist nur ein Platzhalter, damit Globus, Route und Statistik etwas zu zeigen haben.
+---

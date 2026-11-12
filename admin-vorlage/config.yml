@@ -53,23 +53,12 @@ collections:
         required: false
         hint: 'Mit „+ Baustein hinzufügen“ Text, Fotos, Notizzettel oder Lieder einfügen. Mit den Pfeilen oder am Griff verschieben.'
         types:
-          - { label: Text, name: text, widget: object, summary: '{{fields.text}}', fields: [{ label: Text, name: text, widget: markdown, buttons: [bold, italic, link], editor_components: [], hint: 'Links öffnen sich auf der Seite im Bilderrahmen.' }] }
+          - { label: Text, name: text, widget: object, summary: '{{fields.text}}', fields: [{ label: Text, name: text, widget: markdown, buttons: [bold, italic, link], editor_components: [], hint: 'Links öffnen sich auf der Seite im Bilderrahmen.' }, { label: Mit Initiale beginnen, name: initiale, widget: boolean, default: false, required: false, hint: 'Der erste Buchstabe wird groß und verziert, z. B. nach einer Zwischenüberschrift.' }] }
           - { label: Zwischenüberschrift, name: ueberschrift, widget: object, summary: '{{fields.text}}', fields: [{ label: Zwischenüberschrift, name: text, widget: string }] }
           - { label: Foto, name: foto, widget: object, summary: '{{fields.text}}', fields: [{ label: Foto, name: bild, widget: image }, { label: Bildunterschrift, name: text, widget: string, required: false }] }
           - { label: Fotostreifen, name: streifen, widget: object, summary: '{{fields.text}}', fields: [{ label: Fotos (2 oder 3), name: bilder, widget: list, min: 2, max: 3, field: { label: Foto, name: bild, widget: image } }, { label: Unterschrift, name: text, widget: string, required: false }] }
           - { label: Notizzettel, name: notiz, widget: object, summary: '{{fields.text}}', fields: [{ label: Notiz, name: text, widget: text, hint: 'Erscheint handgeschrieben auf einem gelben Zettel.' }] }
           - { label: Lied, name: lied, widget: object, summary: '{{fields.titel}}', fields: [{ label: YouTube-Link, name: link, widget: string, hint: 'Ab hier läuft beim Lesen dieses Lied. Davor erscheinen Fußspuren. Das erste Lied läuft ab Anfang.' }, { label: 'Interpret – Lied', name: titel, widget: string, required: false }] }
-      # Ältere Einträge: freier Text und Liederliste mit [[Lied 2]]. Bleiben bearbeitbar; stehen auf der Seite vor den Bausteinen.
-      - { label: 'Text (ältere Einträge)', name: body, widget: markdown, required: false, hint: 'Für neue Einträge lieber „Inhalt“ oben nutzen. Liedwechsel hier mit eigener Zeile [[Lied 2]].' }
-      - label: 'Lieder (ältere Einträge)'
-        name: lieder
-        widget: list
-        required: false
-        collapsed: true
-        hint: 'Nur für „Text (ältere Einträge)“: Lied 1 startet beim Lesen, weitere mit [[Lied 2]] … im Text. Neue Lieder lieber als Baustein.'
-        fields:
-          - { label: YouTube-Link, name: youtube, widget: string }
-          - { label: 'Titel (Interpret – Lied)', name: titel, widget: string, required: false }
       - { label: 'Persönliches (lila Kasten am Ende, für alle sichtbar)', name: persoenliches, widget: text, required: false }
       - { label: 'Ganz persönlich 🔒 (wird nie veröffentlicht)', name: ganz_persoenlich, widget: text, required: false }
       - { label: 'Vorlese-Datei (MP3 mit deiner Stimme)', name: vorlesen, widget: file, required: false }

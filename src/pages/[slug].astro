@@ -20,7 +20,7 @@ const links = station?.vorher ? { e: station.vorher, label: '← Vorherige Stati
 const rechts = station?.nachher ? { e: station.nachher, label: 'Nächste Station →' } : nachher ? { e: nachher, label: 'Nächster Ort →' } : null;
 const d = e.data;
 const { Content } = await render(e);
-// Älterer freier Text (body) steht vor den Bausteinen; Lieder beider Teile zählen durchgehend
+// Freier Text (body) gibt es nur noch bei nicht umgewandelten älteren Einträgen (scripts/umwandeln.mjs); er steht vor den Bausteinen
 const liederAlt = d.lieder.map((l) => ({ youtube: l.youtube, titel: l.titel || '' }));
 const bau = d.inhalt.length ? await bausteineHtml(d.inhalt, liederAlt) : null;
 const lieder = bau ? bau.lieder : liederAlt;

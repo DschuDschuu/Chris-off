@@ -10,7 +10,10 @@ titelbild: /media/desert.jpg
 galerie:
   - { bild: /media/desert.jpg, text: 'Abends am Stadtrand' }
 entwurf: false
----
-Beispiel-Eintrag. Hier steht später Christophs Text über Marrakesch.
+inhalt:
+  - type: text
+    text: |-
+      Beispiel-Eintrag. Hier steht später Christophs Text über Marrakesch.
 
-Dieser Eintrag ist nur ein Platzhalter, damit Globus, Route und Statistik etwas zu zeigen haben.
+      Dieser Eintrag ist nur ein Platzhalter, damit Globus, Route und Statistik etwas zu zeigen haben.
+---

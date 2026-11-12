@@ -21,6 +21,7 @@ inhalt:
   - type: ueberschrift
     text: Siesta, unfreiwillig
   - type: text
+    initiale: true
     text: Zwischen zwei und fünf ist die Stadt wie ausgeknipst. Ich habe gelernt, nicht dagegen anzulaufen.
   - type: notiz
     text: |-

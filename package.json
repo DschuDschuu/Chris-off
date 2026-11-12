@@ -8,7 +8,8 @@
     "dev": "node scripts/prepare.mjs && astro dev",
     "build": "node scripts/prepare.mjs && astro build",
     "preview": "astro preview",
-    "check:privat": "node scripts/privat-check.mjs"
+    "check:privat": "node scripts/privat-check.mjs",
+    "umwandeln": "node scripts/umwandeln.mjs"
   },
   "engines": {
     "node": ">=22"
@@ -26,5 +27,8 @@
     "sharp": "^0.35.5",
     "topojson-client": "^3.1.0",
     "world-atlas": "^2.0.2"
+  },
+  "devDependencies": {
+    "js-yaml": "^4.3.2"
   }
 }

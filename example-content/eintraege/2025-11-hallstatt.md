@@ -9,7 +9,10 @@ titelbild: /media/lake.jpg
 galerie:
   - { bild: /media/lake.jpg, text: 'Morgennebel am See' }
 entwurf: false
----
-Beispiel-Eintrag. Hier steht später Christophs Text über Hallstatt.
+inhalt:
+  - type: text
+    text: |-
+      Beispiel-Eintrag. Hier steht später Christophs Text über Hallstatt.
 
-Dieser Eintrag ist nur ein Platzhalter, damit Globus, Route und Statistik etwas zu zeigen haben.
+      Dieser Eintrag ist nur ein Platzhalter, damit Globus, Route und Statistik etwas zu zeigen haben.
+---

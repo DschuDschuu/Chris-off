@@ -25,13 +25,13 @@ export const liederAus = (bausteine: Baustein[]): Lied[] =>
 export const bausteinText = (bausteine: Baustein[]) =>
   bausteine.filter((b) => ['text', 'ueberschrift', 'notiz'].includes(b.type)).map((b) => str(b.text)).filter(Boolean).join('\n\n');
 
-// liederVorher: Lieder aus „Text (ältere Einträge)“, damit die Nummern der Liedwechsel weiterzählen
+// liederVorher: Lieder eines noch nicht umgewandelten älteren Eintrags (freier Text), damit die Nummern weiterzählen
 export async function bausteineHtml(bausteine: Baustein[], liederVorher: Lied[] = []) {
   const lieder = [...liederVorher, ...liederAus(bausteine)];
   let liedNr = liederVorher.length;
   const teile = bausteine.map((b) => {
     switch (b.type) {
-      case 'text': return str(b.text);
+      case 'text': return b.initiale && str(b.text).trim() ? `<div class="mit-initiale">\n\n${str(b.text)}\n\n</div>` : str(b.text);
       case 'ueberschrift': return str(b.text).trim() ? `## ${str(b.text).replace(/\s+/g, ' ').trim()}` : '';
       case 'foto': return str(b.bild) ? `![${str(b.text).replace(/[[\]]/g, '\\$&')}](<${str(b.bild)}>)` : '';
       case 'streifen': {

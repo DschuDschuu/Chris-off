@@ -256,7 +256,7 @@ a.pc-btn.primary{color:#fff}
 .lesen{position:relative;z-index:20;padding-left:max(16px, env(safe-area-inset-left,0px));padding-right:max(16px, env(safe-area-inset-right,0px))}
 .lesen .sheet{min-height:100vh}
 .text p{margin:0 0 1.1em;max-width:62ch}
-.text > p:first-of-type::first-letter{font-family:var(--f-display);float:left;font-size:3.4em;line-height:.9;padding:4px 8px 0 0;color:var(--amber)}
+.text .mit-initiale > p:first-child::first-letter{font-family:var(--f-display);float:left;font-size:3.4em;line-height:.9;padding:4px 8px 0 0;color:var(--amber)}
 .text h2,.text h3{font-family:var(--f-display);font-weight:400;line-height:1.15;margin:1.6em 0 .5em}
 .text a{color:var(--amber);text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
 .text .speaking{border-radius:6px}
