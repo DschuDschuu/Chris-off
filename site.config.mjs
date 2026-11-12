@@ -10,7 +10,7 @@ export default {
   // Aussehen der Weltkugel: 'hell' | 'vintage' | 'punkte' | 'linien'
   globus: 'hell',
   // Fog of War: freier Umkreis um jeden Ort und halbe Breite der Route (km)
-  nebel: { radiusKm: 150, routeKm: 40 },
+  nebel: { radiusKm: 25, routeKm: 10 },
   // Gedichte: 'mix' (Küste = Flaschenpost, sonst Papierflieger) | 'flieger' | 'flasche'
   gedichte: 'mix',
 };

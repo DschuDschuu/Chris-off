@@ -37,7 +37,7 @@ CONTENT_DIR=../tagebuch-inhalte npm run dev   # mit echten Inhalten
 - `admin-vorlage/config.yml` – Editor-Felder; `__REPO__`/`__URL__` werden in `prepare.mjs` ersetzt. Der Ort ist ein Karten-Feld `karte` (GeoJSON-Punkt als Text, erst Länge, dann Breite).
 - `src/content.config.ts` – Schema der Inhalte. Macht aus `karte` die Felder `breite`/`laenge`, die Globus und Seiten benutzen; ältere Einträge mit `breite`/`laenge` gelten weiter. Fehlt der Ort, bricht der Bau mit Hinweis ab.
 - Impressum-Angaben: im Inhalts-Repo `einstellungen/rechtliches.md` (Editor: „Einstellungen → Impressum & Kontakt“), gelesen über `src/lib/rechtliches.ts` für Impressum und Datenschutz. Fehlt etwas, zeigt das Impressum Platzhalter und einen Hinweis; der Bau läuft weiter. Bewusst nicht im Code-Repo, damit Christophs Anschrift nicht im öffentlichen Code steht.
-- `site.config.mjs` – Titel, Globus-Stil (`hell` aktiv), Nebel-Radius 150 km / Route 40 km, Gedichte `mix`.
+- `site.config.mjs` – Titel, Globus-Stil (`hell` aktiv), Nebel-Radius 25 km / Route 10 km (bewusst klein: „erkundet“ heißt wirklich dort gewesen), Gedichte `mix`.
 
 ## Design-Entscheidungen (aus vielen Feedback-Runden mit Julia – beibehalten)
 
