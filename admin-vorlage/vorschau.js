@@ -38,7 +38,14 @@
       const ueber = p.match(/^#{1,3}\s+(.*)$/);
       if (ueber) return h('h2', { key: k }, ueber[1]);
       if (/^\[\[\s*lied\s*\d+\s*\]\]$/i.test(p)) return h('div', { key: k, className: 'liedwechsel' }, '♪ Liedwechsel ab hier');
-      return h('p', { key: k }, zeile(p, k));
+      return h('p', { key: k }, umbrueche(p, k));
+    });
+  }
+  // Zeilenumbruch wie auf der Seite: „\“ oder zwei Leerzeichen am Zeilenende; Escape-Zeichen (\#, \<) ohne Backslash zeigen
+  function umbrueche(p, key) {
+    return p.split(/(?:\\| {2,})\n/).flatMap((z, j) => {
+      const teil = zeile(z.replace(/\\([\\`*_{}\[\]()#+\-.!<>|])/g, '$1'), key + '-' + j + '-');
+      return j ? [h('br', { key: key + '-br' + j })].concat(teil) : teil;
     });
   }
   const spuren = (key) => h('div', { key, className: 'spuren', 'aria-hidden': 'true' },

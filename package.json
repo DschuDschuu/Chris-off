@@ -9,7 +9,8 @@
     "build": "node scripts/prepare.mjs && astro build",
     "preview": "astro preview",
     "check:privat": "node scripts/privat-check.mjs",
-    "umwandeln": "node scripts/umwandeln.mjs"
+    "umwandeln": "node scripts/umwandeln.mjs",
+    "polarsteps": "node scripts/polarsteps.mjs"
   },
   "engines": {
     "node": ">=22"

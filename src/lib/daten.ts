@@ -13,7 +13,9 @@ export const reinText = (body = '') =>
     .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
     .replace(/\[\[\s*lied\s*\d+\s*\]\]/gi, ' ')
     .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-    .replace(/[#>*_`~]/g, '')
+    .replace(/\\\r?\n/g, ' ') // Zeilenumbruch mit „\“ am Zeilenende
+    .replace(/(?<!\\)[#>*_`~]/g, '')
+    .replace(/\\([\\`*_{}[\]()#+\-.!<>|~])/g, '$1') // entschärfte Zeichen (\#, \<) wieder normal
     .replace(/\s+/g, ' ')
     .trim();
 
