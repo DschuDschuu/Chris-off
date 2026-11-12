@@ -193,7 +193,7 @@ export async function startGlobus(cfg = {}) {
 
   /* ---------- Gedichte: Papierflieger und Flaschenpost ---------- */
   const poemStyle = cfg.gedichte || 'mix';
-  let POEM_SEA = null, poemPos = [], lastMouse = null, hoverPoem = null, letterPoem = null;
+  let POEM_SEA = null, poemPos = [], lastMouse = null, hoverPoem = null, letterPoem = null, poemT = null;
   const ORB = POEMS.map((p, i) => ({ tilt: [-0.35, 0.3, -0.12][i % 3] + (i >> 2) * 0.07, a: [1.18, 1.3, 1.42][i % 3] + (i >> 2) * 0.05, sp: [0.16, -0.12, 0.1][i % 3], ph: i * 2.1 }));
   function plabel(txt, x, y) { ctx.font = '500 12px "IBM Plex Mono", monospace'; ctx.fillStyle = '#1c2433'; ctx.textAlign = 'left'; ctx.fillText(txt.toUpperCase(), x, y); }
   function drawPlane(x, y, ang, s, al) {
@@ -244,10 +244,15 @@ export async function startGlobus(cfg = {}) {
   function drawPoems(now, Rr, center) {
     if (!POEM_SEA) { poemPos = []; return; }
     const t = reduce ? 0 : now / 1000, { cx, cy } = cur, k = Math.max(0.8, Math.min(1.6, Rr / 370)), orbR = Math.min(Rr, Math.min(w, h) * 0.44); poemPos = [];
+    // Zeit seit dem letzten Bild (max. 0,1 s, damit nach einem Tab-Wechsel nichts springt)
+    const dt = poemT === null ? 0 : Math.max(0, Math.min(0.1, t - poemT)); poemT = t;
     POEMS.forEach((p, i) => {
       if (letterPoem === i) return; const hov = hoverPoem === i, st = poemKind(i);
       if (st === 'plane') {
-        const o = ORB[i], dir = Math.sign(o.sp), ph = o.ph + t * o.sp * (hov ? 0.2 : 1), a = orbR * o.a, b = a * 0.3, ct = Math.cos(o.tilt), stt = Math.sin(o.tilt);
+        // Position auf der Umlaufbahn fortschreiben statt aus der Gesamtzeit zu berechnen:
+        // so bremst der Flieger unter der Maus nur ab, statt an eine andere Stelle zu springen.
+        const o = ORB[i]; o.ph += dt * o.sp * (hov ? 0.2 : 1);
+        const dir = Math.sign(o.sp), ph = o.ph, a = orbR * o.a, b = a * 0.3, ct = Math.cos(o.tilt), stt = Math.sin(o.tilt);
         const P = (q) => { const ex = a * Math.cos(q), ey = b * Math.sin(q); return [cx + ex * ct - ey * stt, cy + ex * stt + ey * ct]; };
         const [x, y] = P(ph), front = Math.sin(ph) > 0, dx = -a * Math.sin(ph) * dir, dy = b * Math.cos(ph) * dir, ang = Math.atan2(dx * stt + dy * ct, dx * ct - dy * stt), sc = k * (1 + 0.22 * Math.sin(ph));
         const al = !front && Math.hypot(x - cx, y - cy) < Rr * 0.98 ? 0.14 : 1;
