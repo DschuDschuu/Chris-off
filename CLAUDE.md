@@ -16,7 +16,8 @@ Sprache im Projekt: **Deutsch** (UI-Texte, Kommentare, Commit-Messages). Mit Jul
 - Feld `ganz_persoenlich` darf **nie** in der Seite landen. Es wird in `src/content.config.ts` per `.transform` entfernt. Nie an den Browser, in JSON, Meta-Tags, RSS oder Logs geben.
 - `entwurf: true` wird nicht gebaut.
 - `scripts/privat-check.mjs` muss nach jedem Build laufen (`npm run check:privat`) und grün sein. Test-String in `example-content/eintraege/2026-10-lissabon.md`.
-- Fotos: `scripts/prepare.mjs` entfernt alle Metadaten (GPS). YouTube nur nach Zustimmung über youtube-nocookie.com. Keine externen Fonts/CDNs auf der öffentlichen Seite (Ausnahme: Sveltia-Script auf `/admin`). Keine Cookies, kein Tracking.
+- Fotos: `scripts/prepare.mjs` entfernt alle Metadaten (GPS). YouTube nur nach Zustimmung über youtube-nocookie.com. Keine externen Fonts/CDNs auf der öffentlichen Seite (Ausnahmen nur im Editor auf `/admin`: Sveltia-Script sowie OpenStreetMap-Kacheln und -Ortssuche im Feld „Ort auf der Karte“). Keine Cookies, kein Tracking.
+- Orte werden mit 2 Nachkommastellen gespeichert (ca. 1 km, `decimals: 2` im Editor), damit Unterkünfte nicht erkennbar sind. Die Datenschutzseite verspricht „Orte auf Stadt-Ebene“.
 
 ## Befehle
 
@@ -33,7 +34,8 @@ CONTENT_DIR=../tagebuch-inhalte npm run dev   # mit echten Inhalten
 - `src/scripts/globus.js` – Weltkugel auf Canvas (d3-geo, topojson). `startGlobus({modus:'home'|'lesen', fokus, fokusOrt, stil, nebel, gedichte})`. Daten kommen aus `<script id="tb-daten">` (siehe `globusDaten()` in `src/lib/daten.ts`).
 - `src/scripts/lesen.js` – Eintragsseite: Musik mit `[[Lied N]]`-Wechsel beim Scrollen, `?musik=1`, `?vorlesen=1`, Vorlesen (MP3 oder speechSynthesis), Lightbox, Bilderrahmen-Links, Fortschritt, Drucken.
 - `src/lib/remark-tagebuch.mjs` – `[[Lied 2]]` → `.liedwechsel`, allein stehende Bilder → `<figure>`, externe Links → `data-rahmen`.
-- `admin-vorlage/config.yml` – Editor-Felder; `__REPO__`/`__URL__` werden in `prepare.mjs` ersetzt.
+- `admin-vorlage/config.yml` – Editor-Felder; `__REPO__`/`__URL__` werden in `prepare.mjs` ersetzt. Der Ort ist ein Karten-Feld `karte` (GeoJSON-Punkt als Text, erst Länge, dann Breite).
+- `src/content.config.ts` – Schema der Inhalte. Macht aus `karte` die Felder `breite`/`laenge`, die Globus und Seiten benutzen; ältere Einträge mit `breite`/`laenge` gelten weiter. Fehlt der Ort, bricht der Bau mit Hinweis ab.
 - `site.config.mjs` – Titel, Globus-Stil (`hell` aktiv), Nebel-Radius 150 km / Route 40 km, Gedichte `mix`.
 
 ## Design-Entscheidungen (aus vielen Feedback-Runden mit Julia – beibehalten)
