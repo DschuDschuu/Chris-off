@@ -1,7 +1,8 @@
 ---
 import { render } from 'astro:content';
 import Base from '../layouts/Base.astro';
-import { alleEintraege, reisenMitStationen, stationVon, datumDE, koord, auszug, lesezeit } from '../lib/daten';
+import { alleEintraege, reisenMitStationen, stationVon, datumDE, koord, auszug, lesezeit, textVon } from '../lib/daten';
+import { bausteineHtml } from '../lib/bausteine';
 
 export async function getStaticPaths() {
   const alle = await alleEintraege();
@@ -19,11 +20,14 @@ const links = station?.vorher ? { e: station.vorher, label: '← Vorherige Stati
 const rechts = station?.nachher ? { e: station.nachher, label: 'Nächste Station →' } : nachher ? { e: nachher, label: 'Nächster Ort →' } : null;
 const d = e.data;
 const { Content } = await render(e);
-const lieder = d.lieder.map((l) => ({ youtube: l.youtube, titel: l.titel || '' }));
+// Älterer freier Text (body) steht vor den Bausteinen; Lieder beider Teile zählen durchgehend
+const liederAlt = d.lieder.map((l) => ({ youtube: l.youtube, titel: l.titel || '' }));
+const bau = d.inhalt.length ? await bausteineHtml(d.inhalt, liederAlt) : null;
+const lieder = bau ? bau.lieder : liederAlt;
 const galerie = d.galerie;
-const minuten = lesezeit(e.body);
+const minuten = lesezeit(textVon(e));
 ---
-<Base titel={d.titel} beschreibung={auszug(e.body)} bild={d.titelbild || galerie[0]?.bild} fokus={e.id} typ="article" bereich="tagebuch" ohneKopf>
+<Base titel={d.titel} beschreibung={auszug(textVon(e))} bild={d.titelbild || galerie[0]?.bild} fokus={e.id} typ="article" bereich="tagebuch" ohneKopf>
   <div class="lesen">
     <article class="sheet art" id="artikel" data-lieder={JSON.stringify(lieder)} data-vorlesen={d.vorlesen || ''}>
       <div class="sheet-bar">
@@ -63,7 +67,7 @@ const minuten = lesezeit(e.body);
 
       {galerie.length === 1 && <figure><img src={galerie[0].bild} alt={galerie[0].text || ''}>{galerie[0].text && <figcaption>{galerie[0].text}</figcaption>}</figure>}
 
-      <div class="text" id="text"><Content /></div>
+      <div class="text" id="text">{e.body?.trim() && <Content />}{bau && <Fragment set:html={bau.html} />}</div>
 
       {d.vorlesen && (
         <div class="vorlesebar" id="vorlesebar" hidden>

@@ -1,0 +1,38 @@
+/* Luftpost-Look für den Editor (Sveltia 0.255.1).
+   Nutzt Sveltias CSS-Variablen (--sui-…) und das Feld-Attribut data-typed-key-path, z. B. „inhalt.*<notiz>.text“.
+   Nach einem Sveltia-Update prüfen, ob beides noch so heißt. */
+@import url(/admin/schriften.css);
+
+:root {
+  --sui-font-family-default: "Source Serif 4", Georgia, serif !important;
+  --sui-base-hue: 222 !important;
+  --sui-primary-accent-color: #1d3f9a !important;
+  --sui-button-small-border-radius: 999px !important;
+  --sui-control-medium-border-radius: 10px !important;
+}
+
+/* Luftpost-Streifen oben */
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto; height: 6px; z-index: 99999; pointer-events: none;
+  background: repeating-linear-gradient(135deg, #d0292f 0 12px, #fff 12px 18px, #1d3f9a 18px 30px, #fff 30px 36px);
+}
+h1, h2 { font-family: "Gloock", Georgia, serif !important; font-weight: 400 !important; }
+
+/* Bunte Bausteine: Farbe je Typ, links als Streifen und im Kopf leicht getönt */
+.item:has([data-typed-key-path*="<text>"]) { --baustein: #6b7486; }
+.item:has([data-typed-key-path*="<ueberschrift>"]) { --baustein: #1c2433; }
+.item:has([data-typed-key-path*="<foto>"]),
+.item:has([data-typed-key-path*="<streifen>"]) { --baustein: #138a8a; }
+.item:has([data-typed-key-path*="<notiz>"]) { --baustein: #d9a400; }
+.item:has([data-typed-key-path*="<lied>"]) { --baustein: #1d3f9a; }
+.item:has([data-typed-key-path*="inhalt.*<"]) {
+  border-left: 5px solid var(--baustein) !important; border-radius: 10px !important; overflow: hidden;
+}
+.item:has([data-typed-key-path*="inhalt.*<"]) > .header {
+  background: color-mix(in srgb, var(--baustein) 16%, transparent) !important;
+}
+/* Notizzettel schon im Editor handschriftlich auf gelbem Papier */
+[data-typed-key-path*="<notiz>"] textarea {
+  font-family: "Caveat", "Segoe Print", cursive !important; font-size: 22px !important; line-height: 1.25 !important;
+  background: #fff6c9 !important; color: #2b2a22 !important;
+}

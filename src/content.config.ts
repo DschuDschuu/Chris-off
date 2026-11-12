@@ -41,6 +41,8 @@ const eintraege = defineCollection({
       land: z.string(),
       ...ortsFelder,
       reise: z.string().optional().nullable(), // Verweis auf eine Reise (Dateiname/Slug), leer = Tagebuch
+      // Baukasten: Text, Zwischenüberschrift, Foto, Fotostreifen, Notizzettel, Lied (siehe src/lib/bausteine.ts)
+      inhalt: z.array(z.object({ type: z.string() }).passthrough()).nullable().optional().transform((v) => v ?? []),
       titelbild: z.string().optional().nullable(),
       galerie: z.array(z.object({ bild: z.string(), text: z.string().optional().nullable() })).default([]),
       lieder: z.array(z.object({ youtube: z.string(), titel: z.string().optional().nullable() })).default([]),

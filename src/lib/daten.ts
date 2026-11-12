@@ -1,4 +1,5 @@
 import { getCollection } from 'astro:content';
+import { bausteinText, type Baustein } from './bausteine';
 
 export const datumDE = (d: Date) =>
   d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
@@ -22,6 +23,10 @@ export const auszug = (body = '', max = 170) => {
   const cut = t.slice(0, max);
   return cut.slice(0, cut.lastIndexOf(' ')) + ' …';
 };
+
+// Ganzer Text eines Eintrags: älterer freier Text plus Text aus den Bausteinen
+export const textVon = (e: { body?: string; data: { inhalt?: Baustein[] } }) =>
+  [e.body ?? '', bausteinText(e.data.inhalt ?? [])].filter((t) => t.trim()).join('\n\n');
 
 export const lesezeit = (body = '') => Math.max(1, Math.round(reinText(body).split(' ').length / 200));
 
@@ -96,8 +101,8 @@ export async function globusDaten() {
     datum: datumDE(e.data.datum),
     iso: e.data.datum.toISOString().slice(0, 10),
     bild: e.data.titelbild || e.data.galerie[0]?.bild || null,
-    auszug: auszug(e.body, 120),
-    musik: e.data.lieder.length > 0,
+    auszug: auszug(textVon(e), 120),
+    musik: e.data.lieder.length > 0 || e.data.inhalt.some((b) => b.type === 'lied' && typeof b.link === 'string' && b.link.trim() !== ''),
     url: `/${e.id}/`,
   }));
   const gedichte = P.map((p) => {

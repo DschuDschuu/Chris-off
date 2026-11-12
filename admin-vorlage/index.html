@@ -5,9 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
   <title>Tagebuch · Editor</title>
+  <!-- Luftpost-Look: Schriften, Farben, bunte Bausteine (hängt an Sveltias CSS-Variablen und Feld-Attributen) -->
+  <link rel="stylesheet" href="/admin/editor.css">
 </head>
 <body>
-  <!-- Sveltia CMS: Editor für Christoph. Speichert direkt in sein privates Inhalts-Repo. -->
-  <script src="https://unpkg.com/@sveltia/cms/dist/sveltia-cms.js"></script>
+  <!-- Sveltia CMS in fester Version. Nicht auf „neueste“ umstellen: Hier wird Christophs GitHub-Zugang benutzt,
+       und editor.css/vorschau.js hängen am Innenleben genau dieser Version.
+       Update: Version und integrity-Hash ändern (sha384 der Datei), dann Editor mit Bausteinen, Karte und Vorschau testen. -->
+  <script src="https://unpkg.com/@sveltia/cms@0.255.1/dist/sveltia-cms.js"
+          integrity="sha384-/ZfxGJ2pp5+UxYN/fCTkbGwnm1ouOPKZXX28NKoGJd7QTv9UZILdcRD/hs2XE+vN"
+          crossorigin="anonymous"></script>
+  <!-- Eigene Vorschau: zeigt den Eintrag so, wie er auf der Seite aussieht -->
+  <script src="/admin/vorschau.js"></script>
 </body>
 </html>
