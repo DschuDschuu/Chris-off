@@ -74,3 +74,17 @@ collections:
       - { label: 'Ort auf der Karte (nur falls ohne Eintrag)', name: karte, widget: map, decimals: 2, center: [10, 48], zoom: 4, required: false }
       - { label: Gedicht, name: body, widget: text, hint: 'Jede Zeile in eine eigene Zeile, Strophen durch eine Leerzeile trennen.' }
       - { label: 'Entwurf (noch nicht veröffentlichen)', name: entwurf, widget: boolean, default: false, required: false }
+
+  # Einstellungen: einzelne Dateien statt Listen. Die Angaben stehen öffentlich im Impressum.
+  - name: einstellungen
+    label: Einstellungen
+    files:
+      - name: rechtliches
+        label: Impressum & Kontakt
+        file: einstellungen/rechtliches.md
+        fields:
+          - { label: 'Vor- und Nachname', name: name, widget: string, required: false }
+          - { label: 'Straße und Hausnummer', name: strasse, widget: string, required: false }
+          - { label: 'PLZ und Ort', name: ort, widget: string, required: false }
+          - { label: 'E-Mail', name: email, widget: string, required: false, hint: 'Steht öffentlich im Impressum.' }
+          - { label: 'Telefon (freiwillig)', name: telefon, widget: string, required: false }

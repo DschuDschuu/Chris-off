@@ -80,4 +80,17 @@ const gedichte = defineCollection({
     }),
 });
 
-export const collections = { eintraege, gedichte };
+// Impressum-Angaben, die Christoph im Editor unter „Einstellungen → Impressum & Kontakt“ pflegt.
+// Alles optional: fehlt etwas, zeigt die Impressum-Seite einen Hinweis statt den Bau abzubrechen.
+const einstellungen = defineCollection({
+  loader: glob({ pattern: 'rechtliches.md', base: `${basis}/einstellungen` }),
+  schema: z.object({
+    name: z.string().optional().nullable(),
+    strasse: z.string().optional().nullable(),
+    ort: z.string().optional().nullable(),
+    email: z.string().optional().nullable(),
+    telefon: z.string().optional().nullable(),
+  }),
+});
+
+export const collections = { eintraege, gedichte, einstellungen };
