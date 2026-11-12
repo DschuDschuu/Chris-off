@@ -1,14 +1,16 @@
-/* Luftpost-Look für den Editor (Sveltia 0.255.1).
-   Nutzt Sveltias CSS-Variablen (--sui-…) und das Feld-Attribut data-typed-key-path, z. B. „inhalt.*<notiz>.text“.
-   Nach einem Sveltia-Update prüfen, ob beides noch so heißt. */
+/* Editor-Look (Sveltia 0.255.1): Arial, Luftpost-Streifen, Farben je Bereich, Icons, bunte Bausteine, kompakte Angaben.
+   Hängt an Sveltias CSS-Variablen (--sui-…), am Aufbau „section.field[data-key-path] > header > h4“, am Attribut
+   data-typed-key-path (z. B. „inhalt.*<notiz>.text“) und an der mitgelieferten Icon-Schrift „Material Symbols Outlined“.
+   Nach einem Sveltia-Update prüfen, ob das alles noch so heißt. */
 @import url(/admin/schriften.css);
 
 :root {
-  --sui-font-family-default: "Source Serif 4", Georgia, serif !important;
+  --sui-font-family-default: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
   --sui-base-hue: 222 !important;
   --sui-primary-accent-color: #1d3f9a !important;
   --sui-button-small-border-radius: 999px !important;
   --sui-control-medium-border-radius: 10px !important;
+  --blau: #1d3f9a; --rot: #d0292f; --bernstein: #cf6f10; --violett: #7a4fd6; --petrol: #138a8a; --grau: #5b6678; --gelb: #d9a400;
 }
 
 /* Luftpost-Streifen oben */
@@ -16,23 +18,80 @@ body::before {
   content: ""; position: fixed; inset: 0 0 auto; height: 6px; z-index: 99999; pointer-events: none;
   background: repeating-linear-gradient(135deg, #d0292f 0 12px, #fff 12px 18px, #1d3f9a 18px 30px, #fff 30px 36px);
 }
-h1, h2 { font-family: "Gloock", Georgia, serif !important; font-weight: 400 !important; }
 
-/* Bunte Bausteine: Farbe je Typ, links als Streifen und im Kopf leicht getönt */
-.item:has([data-typed-key-path*="<text>"]) { --baustein: #6b7486; }
-.item:has([data-typed-key-path*="<ueberschrift>"]) { --baustein: #1c2433; }
-.item:has([data-typed-key-path*="<foto>"]),
-.item:has([data-typed-key-path*="<streifen>"]) { --baustein: #138a8a; }
-.item:has([data-typed-key-path*="<notiz>"]) { --baustein: #d9a400; }
-.item:has([data-typed-key-path*="<lied>"]) { --baustein: #1d3f9a; }
+/* ---- Feldnamen: Farbe je Bereich und Icon ---- */
+section.field { --feld: var(--blau); }
+section.field:is([data-key-path="persoenliches"]) { --feld: var(--violett); }
+section.field:is([data-key-path="ganz_persoenlich"]) { --feld: var(--grau); }
+section.field:is([data-key-path="datum"], [data-key-path="reise"], [data-key-path="ort"], [data-key-path="land"], [data-key-path="karte"], [data-key-path="uhrzeit"], [data-key-path="wetter"]) { --feld: var(--bernstein); }
+section.field:is([data-key-path="titelbild"], [data-key-path="galerie"], [data-key-path="vorlesen"]) { --feld: var(--petrol); }
+section.field:is([data-key-path="entwurf"]) { --feld: var(--rot); }
+section.field > header > h4 { color: var(--feld) !important; font-weight: 700 !important; letter-spacing: .01em; }
+section.field > header > h4::before {
+  font-family: "Material Symbols Outlined"; font-weight: normal; font-style: normal; font-size: 20px; line-height: 1;
+  font-feature-settings: "liga"; -webkit-font-feature-settings: "liga"; display: inline-block; vertical-align: -5px; margin-right: 6px;
+}
+section.field[data-key-path="titel"] > header > h4::before { content: "edit"; }
+section.field[data-key-path="inhalt"] > header > h4::before { content: "dashboard_customize"; }
+section.field[data-key-path="persoenliches"] > header > h4::before { content: "favorite"; }
+section.field[data-key-path="ganz_persoenlich"] > header > h4::before { content: "lock"; }
+section.field[data-key-path="datum"] > header > h4::before { content: "calendar_month"; }
+section.field[data-key-path="reise"] > header > h4::before { content: "flight"; }
+section.field[data-key-path="ort"] > header > h4::before { content: "location_on"; }
+section.field[data-key-path="land"] > header > h4::before { content: "public"; }
+section.field[data-key-path="karte"] > header > h4::before { content: "map"; }
+section.field[data-key-path="uhrzeit"] > header > h4::before { content: "schedule"; }
+section.field[data-key-path="wetter"] > header > h4::before { content: "partly_cloudy_day"; }
+section.field[data-key-path="titelbild"] > header > h4::before { content: "image"; }
+section.field[data-key-path="galerie"] > header > h4::before { content: "collections"; }
+section.field[data-key-path="vorlesen"] > header > h4::before { content: "mic"; }
+section.field[data-key-path="entwurf"] > header > h4::before { content: "edit_note"; }
+
+/* Persönliches lila, Ganz persönlich gestrichelt */
+section.field[data-key-path="persoenliches"] textarea { border-left: 4px solid var(--violett) !important; background: rgba(122, 79, 214, .05) !important; }
+section.field[data-key-path="ganz_persoenlich"] textarea { border: 2px dashed var(--grau) !important; }
+
+/* „+ Baustein hinzufügen“ als auffälliger Knopf */
+button[data-label*="Baustein"] { background: var(--blau) !important; color: #fff !important; border-color: var(--blau) !important; font-weight: 700 !important; }
+
+/* ---- Bunte Bausteine: Farbe und Icon je Typ ---- */
+.item:has([data-typed-key-path*="<text>"]) { --baustein: #6b7486; --icon: "notes"; }
+.item:has([data-typed-key-path*="<ueberschrift>"]) { --baustein: #1c2433; --icon: "title"; }
+.item:has([data-typed-key-path*="<foto>"]) { --baustein: var(--petrol); --icon: "photo_camera"; }
+.item:has([data-typed-key-path*="<streifen>"]) { --baustein: var(--petrol); --icon: "photo_library"; }
+.item:has([data-typed-key-path*="<notiz>"]) { --baustein: var(--gelb); --icon: "sticky_note_2"; }
+.item:has([data-typed-key-path*="<lied>"]) { --baustein: var(--blau); --icon: "music_note"; }
 .item:has([data-typed-key-path*="inhalt.*<"]) {
   border-left: 5px solid var(--baustein) !important; border-radius: 10px !important; overflow: hidden;
+  background: color-mix(in srgb, var(--baustein) 5%, transparent) !important;
 }
-.item:has([data-typed-key-path*="inhalt.*<"]) > .header {
-  background: color-mix(in srgb, var(--baustein) 16%, transparent) !important;
+.item:has([data-typed-key-path*="inhalt.*<"]) > .header { background: color-mix(in srgb, var(--baustein) 18%, transparent) !important; }
+.item:has([data-typed-key-path*="inhalt.*<"]) > .header .type { font-weight: 700; color: color-mix(in srgb, var(--baustein) 75%, #000); }
+.item:has([data-typed-key-path*="inhalt.*<"]) > .header .type::before {
+  content: var(--icon); font-family: "Material Symbols Outlined"; font-weight: normal; font-size: 18px; line-height: 1;
+  font-feature-settings: "liga"; -webkit-font-feature-settings: "liga"; display: inline-block; vertical-align: -4px; margin-right: 5px;
 }
 /* Notizzettel schon im Editor handschriftlich auf gelbem Papier */
 [data-typed-key-path*="<notiz>"] textarea {
   font-family: "Caveat", "Segoe Print", cursive !important; font-size: 22px !important; line-height: 1.25 !important;
   background: #fff6c9 !important; color: #2b2a22 !important;
+}
+
+/* ---- Eintrag: erst schreiben, dann der Block „Angaben“ ----
+   Paare stehen nebeneinander, die Karte ist kleiner; auf schmalen Bildschirmen wieder untereinander. */
+div:has(> section.field[data-key-path="datum"]) { display: flex !important; flex-wrap: wrap !important; column-gap: 20px !important; align-items: flex-start; }
+div:has(> section.field[data-key-path="datum"]) > * { flex: 1 1 100%; min-width: 0; }
+div:has(> section.field[data-key-path="datum"]) > section.field:is([data-key-path="datum"], [data-key-path="reise"], [data-key-path="ort"], [data-key-path="land"], [data-key-path="uhrzeit"], [data-key-path="wetter"]) { flex: 1 1 calc(50% - 10px) !important; }
+section.field[data-key-path="karte"] .leaflet-container { height: 170px !important; }
+/* Kopf vor den Angaben (Sveltia nutzt ::after selbst als Trennlinie, deshalb überall !important) */
+section.field[data-key-path="ganz_persoenlich"]::after {
+  content: "Angaben · wann und wo" !important; display: block !important; position: static !important; height: auto !important;
+  margin: 30px 0 0 !important; padding: 14px 0 0 !important; background: none !important;
+  border: 0 !important; border-top: 2px dashed rgba(207, 111, 16, .5) !important;
+  font-family: Arial, sans-serif !important; font-size: 13px !important; font-weight: 700 !important;
+  letter-spacing: .12em !important; text-transform: uppercase !important; color: var(--bernstein) !important;
+}
+@media (max-width: 600px) {
+  /* gleicher Selektor wie oben, damit diese Regel gewinnt */
+  div:has(> section.field[data-key-path="datum"]) > section.field:is([data-key-path="datum"], [data-key-path="reise"], [data-key-path="ort"], [data-key-path="land"], [data-key-path="uhrzeit"], [data-key-path="wetter"]) { flex-basis: 100% !important; }
 }

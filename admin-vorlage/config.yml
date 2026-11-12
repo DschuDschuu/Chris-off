@@ -28,22 +28,9 @@ collections:
     summary: '{{titel}} · {{ort}}'
     sortable_fields: [datum, titel, ort]
     fields:
+      # Reihenfolge: erst schreiben (Titel, Bausteine, Persönliches), dann die Angaben. Pflichtfelder unten sind
+      # trotzdem sicher: Sveltia speichert nicht, solange eins fehlt, und springt hin. Paare stehen per editor.css nebeneinander.
       - { label: Titel, name: titel, widget: string }
-      - { label: Datum, name: datum, widget: datetime, format: 'YYYY-MM-DD', date_format: 'DD.MM.YYYY', time_format: false }
-      # Einträge mit Reise sind Stationen dieser Reise (Reihenfolge nach Datum), ohne Reise einzelne Tagebuch-Einträge.
-      - { label: Gehört zur Reise, name: reise, widget: relation, collection: reisen, value_field: '{{slug}}', search_fields: [titel], display_fields: ['{{titel}}'], required: false, hint: 'Leer lassen für einen einzelnen Tagebuch-Eintrag. Neue Reisen legst du unter „Reisen“ an.' }
-      - { label: Ort, name: ort, widget: string, hint: 'z. B. Lissabon' }
-      - { label: Land, name: land, widget: string, hint: 'auf Deutsch, z. B. Portugal' }
-      # Karte statt Zahlenfelder. decimals: 2 = ca. 1 km genau, damit z. B. die Unterkunft nicht erkennbar ist.
-      - { label: Ort auf der Karte, name: karte, widget: map, decimals: 2, center: [10, 48], zoom: 4, hint: 'Ort suchen, auf die Karte tippen oder mit dem Pfeil den eigenen Standort nehmen. Gespeichert wird auf ca. 1 km genau.' }
-      - { label: Titelbild, name: titelbild, widget: image, required: false }
-      - label: Galerie
-        name: galerie
-        widget: list
-        required: false
-        fields:
-          - { label: Bild, name: bild, widget: image }
-          - { label: Bildunterschrift, name: text, widget: string, required: false }
       # Baukasten: der Text eines Eintrags als Folge von Bausteinen (Reihenfolge = Reihenfolge auf der Seite).
       # Gespeichert als Liste mit „type“; dargestellt über src/lib/bausteine.ts, im Editor über vorschau.js.
       - label: Inhalt
@@ -61,9 +48,24 @@ collections:
           - { label: Lied, name: lied, widget: object, summary: '{{fields.titel}}', fields: [{ label: YouTube-Link, name: link, widget: string, hint: 'Ab hier läuft beim Lesen dieses Lied. Davor erscheinen Fußspuren. Das erste Lied läuft ab Anfang.' }, { label: 'Interpret – Lied', name: titel, widget: string, required: false }] }
       - { label: 'Persönliches (lila Kasten am Ende, für alle sichtbar)', name: persoenliches, widget: text, required: false }
       - { label: 'Ganz persönlich 🔒 (wird nie veröffentlicht)', name: ganz_persoenlich, widget: text, required: false }
-      - { label: 'Vorlese-Datei (MP3 mit deiner Stimme)', name: vorlesen, widget: file, required: false }
+      - { label: Datum, name: datum, widget: datetime, format: 'YYYY-MM-DD', date_format: 'DD.MM.YYYY', time_format: false, default: '{{now}}', hint: 'Steht automatisch auf heute.' }
+      # Einträge mit Reise sind Stationen dieser Reise (Reihenfolge nach Datum), ohne Reise einzelne Tagebuch-Einträge.
+      - { label: Gehört zur Reise, name: reise, widget: relation, collection: reisen, value_field: '{{slug}}', search_fields: [titel], display_fields: ['{{titel}}'], required: false, hint: 'Leer = einzelner Tagebuch-Eintrag.' }
+      - { label: Ort, name: ort, widget: string, hint: 'z. B. Lissabon' }
+      - { label: Land, name: land, widget: string, hint: 'auf Deutsch, z. B. Portugal' }
+      # Karte statt Zahlenfelder. decimals: 2 = ca. 1 km genau, damit z. B. die Unterkunft nicht erkennbar ist.
+      - { label: Ort auf der Karte, name: karte, widget: map, decimals: 2, center: [10, 48], zoom: 4, hint: 'Suchen, auf die Karte tippen oder Standort nehmen (ca. 1 km genau).' }
       - { label: Ortszeit beim Schreiben, name: uhrzeit, widget: string, required: false, hint: 'z. B. 21:40' }
       - { label: Wetter, name: wetter, widget: string, required: false, hint: 'z. B. 19 °C, klarer Himmel' }
+      - { label: Titelbild, name: titelbild, widget: image, required: false }
+      - label: Galerie
+        name: galerie
+        widget: list
+        required: false
+        fields:
+          - { label: Bild, name: bild, widget: image }
+          - { label: Bildunterschrift, name: text, widget: string, required: false }
+      - { label: 'Vorlese-Datei (MP3 mit deiner Stimme)', name: vorlesen, widget: file, required: false }
       - { label: 'Entwurf (noch nicht veröffentlichen)', name: entwurf, widget: boolean, default: false, required: false }
 
   - name: gedichte
