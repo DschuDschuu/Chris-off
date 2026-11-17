@@ -4,6 +4,21 @@
 // die nichts verrät, was die Pins nicht ohnehin zeigen. Entwürfe zählen nicht mit.
 import fs from 'node:fs';
 
+// GeoNames nennt manche bekannten Städte englisch („Lisbon“, „Munich“). Für die deutsche Seite übersetzt:
+// Schlüssel mit Ländercode, damit z. B. „Syracuse“ in den USA nicht zu „Syrakus“ wird. Bei Bedarf ergänzen.
+const DEUTSCH = {
+  'DE:Munich': 'München', 'AT:Vienna': 'Wien', 'CH:Genève': 'Genf', 'LU:Luxembourg': 'Luxemburg', 'FR:Nice': 'Nizza',
+  'IT:Rome': 'Rom', 'IT:Milan': 'Mailand', 'IT:Naples': 'Neapel', 'IT:Genoa': 'Genua', 'IT:Florence': 'Florenz', 'IT:Venice': 'Venedig',
+  'IT:Padova': 'Padua', 'IT:Mantova': 'Mantua', 'IT:Bolzano': 'Bozen', 'IT:Merano': 'Meran', 'IT:Trento': 'Trient',
+  'PT:Lisbon': 'Lissabon', 'CZ:Prague': 'Prag', 'PL:Warsaw': 'Warschau', 'BE:Brussels': 'Brüssel', 'NL:The Hague': 'Den Haag',
+  'DK:Copenhagen': 'Kopenhagen', 'GR:Athens': 'Athen', 'GR:Piraeus': 'Piräus', 'GR:Corfu': 'Korfu', 'GR:Ródos': 'Rhodos',
+  'GR:Irákleion': 'Heraklion', 'GR:Thessaloníki': 'Thessaloniki', 'CY:Nicosia': 'Nikosia', 'RU:Moscow': 'Moskau',
+  'RU:Saint Petersburg': 'Sankt Petersburg', 'UA:Kyiv': 'Kiew', 'RS:Belgrade': 'Belgrad', 'RO:Bucharest': 'Bukarest',
+  'MA:Marrakesh': 'Marrakesch', 'MA:Tangier': 'Tanger', 'EG:Cairo': 'Kairo', 'DZ:Algiers': 'Algier', 'SY:Damascus': 'Damaskus',
+  'JP:Tokyo': 'Tokio', 'CN:Beijing': 'Peking', 'CU:Havana': 'Havanna', 'MX:Mexico City': 'Mexiko-Stadt', 'ZA:Cape Town': 'Kapstadt',
+  'US:New York City': 'New York',
+};
+
 // cities.pbf lesen (Protobuf, je Ort eine Nachricht mit Längen-Präfix). Eigener kleiner Leser,
 // damit beim Bau kein Code aus dem Paket läuft. Koordinaten sind fortlaufend als Differenz gespeichert.
 export function orteLesen(datei) {
@@ -25,6 +40,7 @@ export function orteLesen(datei) {
       else if (typ === 2) { const n = varint(); pos += n; } // nicht „pos += varint()“: pos würde vor dem Lesen der Länge ausgewertet
       else throw new Error(`orte.mjs: unbekannter Feldtyp ${typ} – hat sich das Format von all-the-cities geändert?`);
     }
+    o.name = DEUTSCH[`${o.land}:${o.name}`] ?? o.name;
     orte.push(o);
   }
   return orte;

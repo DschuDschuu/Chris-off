@@ -1,6 +1,6 @@
 ---
 // Gedichte: Liste links, ausgewähltes Gedicht als Luftpost-Brief rechts
-import { alleEintraege, datumDE, strophen, findeEintrag } from '../lib/daten';
+import { alleEintraege, datumDE, strophen, findeEintrag, ohneBei, ausOrt, inOrt } from '../lib/daten';
 import type { CollectionEntry } from 'astro:content';
 
 interface Props { liste: CollectionEntry<'gedichte'>[]; aktuell?: CollectionEntry<'gedichte'> | null }
@@ -28,16 +28,16 @@ const ort = e?.data.ort ?? g?.data.ort ?? '';
 
     {g && (
       <article class="letter blatt" aria-labelledby="gTitel">
-        {ort && <div class="pc-pm">{ort.toUpperCase()}</div>}
-        <p class="lt-meta">Luftpost{ort ? ` aus ${ort}` : ''} · {datumDE(g.data.datum)}</p>
+        {ort && <div class="pc-pm">{ohneBei(ort).toUpperCase()}</div>}
+        <p class="lt-meta">Luftpost{ort ? ` ${ausOrt(ort)}` : ''} · {datumDE(g.data.datum)}</p>
         <h1 id="gTitel">{g.data.titel}</h1>
         <div class="lt-body" id="gText">
           {strophen(g.body).map((s) => <p class="stanza">{s.map((z, i) => <Fragment>{i > 0 && <br />}{z}</Fragment>)}</p>)}
         </div>
-        {ort && <p class="lt-sign">– geschrieben in {ort}</p>}
+        {ort && <p class="lt-sign">– geschrieben {inOrt(ort)}</p>}
         <div class="lt-actions">
           <button class="pc-btn primary" id="gVorlesen" aria-pressed="false">🔈 Vorlesen</button>
-          {e && <a class="pc-btn" href={`/${e.id}/`}>Zum Eintrag aus {e.data.ort} →</a>}
+          {e && <a class="pc-btn" href={`/${e.id}/`}>Zum Eintrag {ausOrt(e.data.ort)} →</a>}
           {e && <a class="pc-btn" href={`/#${e.id}`}>🌍 Auf der Weltkugel</a>}
         </div>
       </article>

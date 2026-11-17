@@ -8,6 +8,9 @@ import { feature, mesh } from 'topojson-client';
 export async function startGlobus(cfg = {}) {
   const modus = cfg.modus || 'home';
   const $ = (s) => document.querySelector(s);
+  // „bei Portocolom“ (vom Bau, siehe ortAusPunkt in daten.ts): Poststempel ohne „bei“, „Luftpost aus der Nähe von …“
+  const ohneBei = (o = '') => (o.startsWith('bei ') ? o.slice(4) : o);
+  const ausOrt = (o = '') => (o.startsWith('bei ') ? `aus der Nähe von ${o.slice(4)}` : `aus ${o}`);
   const DATA = JSON.parse($('#tb-daten').textContent);
   const ENTRIES = DATA.eintraege, POEMS = DATA.gedichte;
   const EBY = Object.fromEntries(ENTRIES.map((e) => [e.id, e]));
@@ -677,7 +680,7 @@ export async function startGlobus(cfg = {}) {
     $('#pcImg').src = e.bild || ''; $('#pcImg').alt = `Titelbild: ${e.ort}`; $('#pcImg').hidden = !e.bild;
     const art = e === ENTRIES[0] ? 'Neuester Eintrag' : vorEinemJahr.includes(e) ? 'Heute vor einem Jahr' : 'Eintrag';
     $('#pcEyebrow').textContent = e.reiseTitel ? (art === 'Eintrag' ? `Reise · ${e.reiseTitel}` : `${art} · Reise ${e.reiseTitel}`) : art;
-    $('#pcTitle').textContent = e.titel; $('#pcMeta').textContent = `${e.ort} · ${e.datum}` + (e.reiseTitel ? ` · Station ${e.nr} von ${e.von}` : ''); $('#pcEx').textContent = e.auszug || ''; $('#pcEx').hidden = !e.auszug; $('#pcPm').textContent = e.ort.toUpperCase();
+    $('#pcTitle').textContent = e.titel; $('#pcMeta').textContent = `${e.ort} · ${e.datum}` + (e.reiseTitel ? ` · Station ${e.nr} von ${e.von}` : ''); $('#pcEx').textContent = e.auszug || ''; $('#pcEx').hidden = !e.auszug; $('#pcPm').textContent = ohneBei(e.ort).toUpperCase();
     $('#pcImgLink').href = e.musik ? e.url + '?musik=1' : e.url; $('#pcHint').textContent = e.musik ? '▶ Mit Musik' : 'Lesen';
     $('#pcActions').innerHTML = (e.musik ? `<a class="pc-btn primary" href="${e.url}?musik=1">▶ Mit Musik lesen</a><a class="pc-btn" href="${e.url}">Lesen</a>` : `<a class="pc-btn primary" href="${e.url}">Eintrag lesen →</a>`) + `<a class="pc-btn" href="${e.url}?vorlesen=1">🔈 Vorlesen</a>`;
     if (richtung) { const inn = pc.querySelector('.pc-in'); inn.classList.remove('wisch-l', 'wisch-r'); void inn.offsetWidth; inn.classList.add(richtung > 0 ? 'wisch-l' : 'wisch-r'); }
@@ -733,7 +736,7 @@ export async function startGlobus(cfg = {}) {
   function openLetter(i, from) {
     const p = POEMS[i]; closeCard(true); letterPoem = i; if (p.eintrag && EBY[p.eintrag]) active = EBY[p.eintrag]; flyTo({ lon: p.lon, lat: p.lat }, 1600, false, false, 1);
     const f = from || [innerWidth / 2, innerHeight - 60]; L.style.setProperty('--dx', f[0] - innerWidth / 2 + 'px'); L.style.setProperty('--dy', f[1] - innerHeight / 2 + 'px');
-    $('#ltMeta').textContent = `${poemKind(i) === 'bottle' ? 'Flaschenpost vor' : 'Luftpost aus'} ${p.ort} · ${p.datum}`; $('#ltTitle').textContent = p.titel; $('#ltPm').textContent = (p.ort || '').toUpperCase();
+    $('#ltMeta').textContent = `${poemKind(i) === 'bottle' ? `Flaschenpost vor ${ohneBei(p.ort)}` : `Luftpost ${ausOrt(p.ort)}`} · ${p.datum}`; $('#ltTitle').textContent = p.titel; $('#ltPm').textContent = ohneBei(p.ort).toUpperCase();
     $('#ltBody').innerHTML = p.strophen.map((st) => `<p class="stanza">${st.map(esc).join('<br>')}</p>`).join(''); $('#ltSign').textContent = p.ort ? '– geschrieben in ' + p.ort : '';
     $('#ltLink').href = p.url;
     $('#letterWrap').hidden = false; L.scrollTop = 0; L.classList.remove('fold', 'unfold'); void L.offsetWidth; L.classList.add('unfold');

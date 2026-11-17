@@ -1,6 +1,8 @@
 // Feld „Wo bist du?“ im Editor (Sveltia 0.255.1, eigener Feldtyp „ortswahl“): zwei Knöpfe statt Ort, Land und Karte.
 // Gespeicherter Wert: "zuhause" | Standort als GeoJSON-Punkt (Text, 2 Nachkommastellen ≈ 1 km) | "" (selbst wählen).
 // Ist etwas gewählt, klappen Ort, Land und Karte ein (Klasse „ort-eingeklappt“ am <body>, siehe editor.css).
+// Beim Standort kann Christoph über „Namen selbst schreiben“ Ort und Land wieder aufklappen (Klasse „ort-name-offen“),
+// der Punkt bleibt dabei. Leer gelassen ergänzt der Bau den Namen (ggf. „bei Portocolom“).
 // Ort und Land ergänzt der Bau (alleEintraege() in src/lib/daten.ts), den Punkt fürs Zuhause ebenso.
 // Ohne Wahl und ohne Punkt auf der Karte lässt der Editor nicht speichern (isValid).
 (function () {
@@ -48,6 +50,19 @@
 
     const punktAufKarte = !!(entry && punktAus(entry.getIn(['data', 'karte'])));
 
+    // „Namen selbst schreiben“: offen, wenn angetippt oder wenn Ort/Land schon etwas enthalten (sonst wäre es versteckt)
+    const feld = (k) => String((entry && entry.getIn(['data', k])) || '').trim();
+    const [nameOffen, setNameOffen] = R.useState(false);
+    const nameZeigen = standort && (nameOffen || !!feld('ort') || !!feld('land'));
+    R.useEffect(() => {
+      document.body.classList.toggle('ort-name-offen', nameZeigen);
+      return () => document.body.classList.remove('ort-name-offen');
+    }, [nameZeigen]);
+    const nameSchreiben = () => {
+      setNameOffen(true);
+      setTimeout(() => document.querySelector('section.field[data-key-path="ort"] input')?.focus(), 50);
+    };
+
     const hierBinIch = () => {
       if (!navigator.geolocation) { setStatus('Dieser Browser kennt keinen Standort. Bitte „Ort selbst wählen“.'); return; }
       setStatus('Standort wird ermittelt …');
@@ -67,9 +82,13 @@
         h('button', { type: 'button', className: 'ow-knopf' + (zuhause ? ' an' : ''), 'aria-pressed': zuhause, onClick: () => { setStatus(''); setze('zuhause'); } }, '🏠 Zuhause'),
         h('button', { type: 'button', className: 'ow-knopf' + (standort ? ' an' : ''), 'aria-pressed': standort, onClick: hierBinIch }, '📍 Hier bin ich')),
       (zuhause || standort) && h('p', { className: 'ow-info' },
-        zuhause ? '✓ Zuhause – Ort und Land kommen aus den Einstellungen.' : '✓ Standort übernommen (ca. 1 km genau). Ort und Land werden beim Veröffentlichen ergänzt.',
+        zuhause ? '✓ Zuhause – Ort und Land kommen aus den Einstellungen.'
+          : nameZeigen ? '✓ Standort übernommen (ca. 1 km genau). Den Namen schreibst du unten – was leer bleibt, wird ergänzt.'
+            : '✓ Standort übernommen (ca. 1 km genau). Ort und Land werden beim Veröffentlichen ergänzt.',
         ' ',
-        h('button', { type: 'button', className: 'ow-link', onClick: () => setze('') }, 'Ort selbst wählen')),
+        standort && !nameZeigen && h('button', { type: 'button', className: 'ow-link', onClick: nameSchreiben }, 'Namen selbst schreiben'),
+        standort && !nameZeigen && ' · ',
+        h('button', { type: 'button', className: 'ow-link', onClick: () => { setNameOffen(false); setze(''); } }, 'Ort selbst wählen')),
       status && h('p', { className: 'ow-status' }, status),
       !zuhause && !standort && !punktAufKarte && !status && h('p', { className: 'ow-hinweis', role: 'note' }, 'Bitte wählen – oder unten einen Punkt auf der Karte setzen. Ohne Ort lässt sich nicht speichern.'));
   });

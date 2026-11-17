@@ -58,7 +58,7 @@ collections:
       # klappen Ort, Land und Karte ein; der Bau ergänzt Punkt (bei Zuhause), Ort und Land (alleEintraege() in src/lib/daten.ts).
       # Pflicht prüft das Feld selbst: Zuhause, Standort oder ein Punkt auf der Karte. Einträge nah am Zuhause = Haus-Pin.
       - { label: 'Wo bist du?', name: ortswahl, widget: ortswahl, required: false }
-      - { label: Ort, name: ort, widget: string, required: false, hint: 'Leer lassen = wird aus dem Punkt ergänzt (nächster größerer Ort). Oder selbst schreiben, z. B. Cala Romantica.' }
+      - { label: Ort, name: ort, widget: string, required: false, hint: 'Leer lassen = wird aus dem Punkt ergänzt (Ort in der Nähe, außerhalb heißt es z. B. „bei Portocolom“). Oder selbst schreiben, z. B. Cala Romantica.' }
       - { label: Land, name: land, widget: string, required: false, hint: 'Leer lassen = wird ergänzt. Sonst auf Deutsch, z. B. Portugal.' }
       # Karte statt Zahlenfelder. decimals: 2 = ca. 1 km genau, damit z. B. die Unterkunft nicht erkennbar ist.
       - { label: Ort auf der Karte, name: karte, widget: map, decimals: 2, center: [10, 48], zoom: 4, required: false, hint: 'Nur nötig, wenn du oben nichts antippst: suchen, auf die Karte tippen oder Standort nehmen (ca. 1 km genau).' }

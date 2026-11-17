@@ -51,9 +51,12 @@ export const entfernungKm = (lat1: number, lon1: number, lat2: number, lon2: num
   return 2 * 6371 * Math.asin(Math.sqrt(a));
 };
 
-// Ort und Land aus dem Punkt ableiten, wenn Christoph die Felder leer lässt (z. B. nach „Aktuellen Standort verwenden“).
+// Ort und Land aus dem Punkt ableiten, wenn Christoph die Felder leer lässt (z. B. nach „Hier bin ich“).
 // Ort: größter Ort bis 8 km, sonst nächster bis 50 km (GeoNames über all-the-cities, Orte ab ca. 1.000 Einwohnern –
-// kleine Orte fehlen, dann kommt der Nachbarort). Land: deutscher Name aus dem Ländercode. Läuft nur beim Bau.
+// kleine Orte und Strände fehlen, dann kommt der Nachbarort). Land: deutscher Name aus dem Ländercode. Läuft nur beim Bau.
+// Liegt der Punkt außerhalb dieses Orts, heißt es „bei Portocolom“ (er war am Strand, nicht im Ort). Die Größe des Orts
+// wird aus den Einwohnern geschätzt (Kreis mit ca. 3.000 Einwohnern je km², z. B. Lissabon ≈ 7 km, Portocolom < 1 km),
+// dazu 1,5 km Spielraum für die Rundung auf ca. 1 km; mindestens 3 km.
 let ORTE_ALLE: ReturnType<typeof orteLesen> | null = null;
 const LANDNAME = new Intl.DisplayNames(['de'], { type: 'region' });
 export function ortAusPunkt(lat: number, lon: number) {
@@ -67,8 +70,17 @@ export function ortAusPunkt(lat: number, lon: number) {
   }
   const o = groesster || (nd < 50 ? naechster : null), code = (groesster || naechster)?.land;
   let land = ''; try { land = code ? LANDNAME.of(code) ?? '' : ''; } catch {}
-  return { ort: o?.name || 'Unterwegs', land };
+  if (!o) return { ort: 'Unterwegs', land };
+  const imOrt = entfernungKm(lat, lon, o.lat, o.lon) <= Math.max(3, Math.sqrt(o.ew / 3000 / Math.PI) + 1.5);
+  return { ort: (imOrt ? '' : 'bei ') + o.name, land };
 }
+
+// „bei Portocolom“ (aus ortAusPunkt) in Sätzen: Poststempel ohne „bei“, „Luftpost aus der Nähe von …“, „geschrieben bei …“.
+// Nur das kleine „bei “ vom Bau zählt; was Christoph selbst schreibt, bleibt, wie es ist.
+export const istBei = (ort = '') => ort.startsWith('bei ');
+export const ohneBei = (ort = '') => (istBei(ort) ? ort.slice(4) : ort);
+export const ausOrt = (ort = '') => (istBei(ort) ? `aus der Nähe von ${ohneBei(ort)}` : `aus ${ort}`);
+export const inOrt = (ort = '') => (istBei(ort) ? ort : `in ${ort}`);
 
 // Alle veröffentlichten Einträge, neueste zuerst. Fehlen Ort oder Land, werden sie ergänzt:
 // am Zuhause (unter ZUHAUSE_KM) mit dem Zuhause, sonst aus dem Punkt. Eigene Eingaben haben immer Vorrang.

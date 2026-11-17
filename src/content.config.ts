@@ -60,7 +60,8 @@ const eintraege = defineCollection({
     // „Wo bist du?“ hat Vorrang: "zuhause" → Punkt setzt alleEintraege() (src/lib/daten.ts) vom Zuhause ein; Standort → dieser Punkt.
     .transform(({ ganz_persoenlich, karte, breite, laenge, ortswahl, ...rest }, ctx) => {
       const wahl = ortswahl?.trim() || '';
-      if (wahl === 'zuhause') return { ...rest, zuhauseGewaehlt: true, breite: 0, laenge: 0 };
+      // Zuhause: Ort und Land immer aus den Einstellungen (die Felder sind dann im Editor eingeklappt, alte Eingaben zählen nicht)
+    if (wahl === 'zuhause') return { ...rest, ort: '', land: '', zuhauseGewaehlt: true, breite: 0, laenge: 0 };
       const punkt = (wahl && ortLesen({ karte: wahl })) || ortLesen({ karte, breite, laenge });
       if (!punkt) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Ort fehlt: im Editor bei „Wo bist du?“ Zuhause oder „Hier bin ich“ antippen oder einen Punkt auf der Karte setzen.' });
