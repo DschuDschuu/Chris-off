@@ -71,11 +71,6 @@ body.has-player .dock{bottom:calc(104px + env(safe-area-inset-bottom,0px))}
 .pop button{width:100%;display:flex;justify-content:space-between;gap:10px;background:none;border:0;border-radius:8px;padding:8px 10px;text-align:left;font-size:15px}
 .pop button:hover,.pop button[aria-current="true"]{background:rgba(28,36,51,.06)}
 .pop .d{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);white-space:nowrap}
-/* Eintragsliste: Reisen als Gruppe mit Stationen; lange Listen scrollen, Impressum-Links bleiben sichtbar */
-#entryList{max-height:min(56vh,480px);overflow-y:auto;overscroll-behavior:contain}
-.pop .trip-h{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:2px 10px;margin:6px 0 2px;padding:6px 10px 2px;font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--amber)}
-.pop .trip-h .d{letter-spacing:0;text-transform:none}
-.pop .trip ul{margin-left:14px;padding-left:4px;border-left:2px dotted rgba(207,111,16,.45)}
 .reise-zeile{margin:6px 0 0;font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--amber)}
 .postcard{position:fixed;left:0;top:0;z-index:9;width:450px;max-width:calc(100vw - 24px);box-sizing:border-box;padding:10px;border-radius:4px;
   background:repeating-linear-gradient(-45deg,#d0292f 0 11px,#fbf8f1 11px 22px,#1d3f9a 22px 33px,#fbf8f1 33px 44px);box-shadow:0 20px 46px rgba(20,30,50,.3);
@@ -228,7 +223,8 @@ figcaption{margin-top:8px;font-style:italic;color:var(--muted);font-size:15px}
 .mat p{margin:0;font-size:15px;color:#3b362f}
 .mat a{color:#1d1a16;font-weight:600}
 .mat .pn{font-family:var(--f-mono);font-size:10.5px;color:#7d7468}
-.lightbox img{max-width:min(1000px,100%);max-height:78vh;border-radius:8px;display:block}
+.lightbox img{max-width:min(1000px,100%);max-height:78vh;border-radius:8px;display:block;user-select:none;-webkit-user-drag:none}
+.lightbox{touch-action:pan-y pinch-zoom} /* seitliches Wischen wechselt das Bild (lesen.js) */
 .lightbox .cap{text-align:center;color:var(--muted);margin-top:10px;font-style:italic}
 .toast{position:fixed;left:50%;transform:translateX(-50%);top:calc(70px + env(safe-area-inset-top,0px));z-index:60;background:var(--panel-solid);border:1px solid var(--line);border-radius:999px;padding:9px 16px;font-family:var(--f-mono);font-size:12.5px;max-width:calc(100% - 32px);text-align:center;transition:opacity .3s}
 @media (max-width:760px){
@@ -264,7 +260,7 @@ a.pc-btn.primary{color:#fff}
 .liedwechsel{display:flex;align-items:center;gap:10px;margin:26px 0;padding:10px 14px;border:1px dashed rgba(207,111,16,.5);border-radius:10px;font-family:var(--f-mono);font-size:12.5px;color:var(--amber)}
 .liedwechsel.active{background:rgba(242,165,65,.12)}
 /* Bausteine: Notizzettel, Fotostreifen, Fußspuren vor einem Liedwechsel */
-.zettel{font-family:var(--f-hand);font-size:clamp(22px,2.6vw,27px);line-height:1.22;background:#fff6c9;color:#2b2a22;padding:18px 20px 16px;margin:32px 6px;max-width:440px;transform:rotate(-1.2deg);box-shadow:0 8px 18px rgba(20,30,50,.13);position:relative}
+.zettel{font-family:var(--f-hand);font-size:clamp(22px,2.6vw,27px);line-height:1.22;background:#fff6c9;color:#2b2a22;padding:18px 20px 16px;margin:32px auto;max-width:440px;transform:rotate(-1.2deg);box-shadow:0 8px 18px rgba(20,30,50,.13);position:relative}
 .zettel::before{content:"";position:absolute;top:-10px;left:50%;width:86px;height:22px;transform:translateX(-50%) rotate(2deg);background:rgba(208,41,47,.22)}
 .streifen-bilder{display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr));gap:8px}
 .text .streifen-bilder img,.streifen-bilder img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:8px;display:block}
@@ -274,6 +270,7 @@ a.pc-btn.primary{color:#fff}
 .ytbox{position:fixed;z-index:31;right:max(16px, env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));width:236px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:8px;box-shadow:0 14px 34px rgba(20,30,50,.2);display:grid;gap:6px}
 .ytbox iframe{width:220px;height:200px;border:0;border-radius:8px;display:block;background:#000}
 .ytbox .yt-row{display:flex;justify-content:space-between;align-items:center;gap:8px;font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.ytbox .yt-tipp{margin:0;font-family:var(--f-mono);font-size:11.5px;line-height:1.35;color:var(--amber)}
 .ytbox .yt-row button{border:1px solid var(--line);background:none;border-radius:999px;padding:3px 10px;font-size:12px}
 .vorlesebar{position:sticky;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:5;margin-top:24px;display:flex;gap:10px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 10px;box-shadow:0 8px 24px rgba(20,30,50,.12)}
 .vorlesebar audio{flex:1;min-width:0;height:36px}
@@ -322,9 +319,10 @@ a.pc-img{text-decoration:none}
 body.has-yt .vorlesebar{margin-right:250px}
 @media (max-width:760px){
   .ytbox{left:max(12px, env(safe-area-inset-left,0px));right:max(12px, env(safe-area-inset-right,0px));width:auto;grid-template-columns:minmax(0,1fr) auto;align-items:center}
-  .ytbox iframe{width:120px;height:68px}
-  .ytbox #ytSlot{grid-row:1;grid-column:2}
-  body.has-yt .vorlesebar{margin-right:0;bottom:calc(110px + env(safe-area-inset-bottom,0px))}
+  .ytbox iframe{width:160px;height:90px}
+  .ytbox #ytSlot{grid-row:1 / span 2;grid-column:2}
+  .ytbox .yt-tipp{grid-row:2;grid-column:1}
+  body.has-yt .vorlesebar{margin-right:0;bottom:calc(132px + env(safe-area-inset-bottom,0px))}
   body.has-yt .sheet{padding-bottom:200px}
 }
 
@@ -347,3 +345,41 @@ body.start .toast{top:auto;bottom:calc(128px + env(safe-area-inset-bottom,0px))}
 .toast{border-radius:14px}
 @media (max-width:640px){body.start .toast{bottom:auto;top:calc(10px + env(safe-area-inset-top,0px))}}
 @media (max-width:760px){.sheet-bar{flex-wrap:nowrap}.sheet-bar .btn.sm{padding:7px 11px}.sheet-bar .grp{flex-wrap:nowrap;gap:6px}}
+
+/* Handy quer (niedriger Bildschirm): Postkarte kompakt, Hinweise fangen keine Klicks ab */
+.toast{pointer-events:none}
+@media (max-height:520px) and (min-width:641px){
+  .postcard{width:420px;z-index:45}
+  .pc-in{grid-template-columns:96px minmax(0,1fr);gap:10px}.pc-img{width:96px;height:118px}
+  .pc-ex{display:none!important}.pc-body h2{font-size:19px}.pc-btn{font-size:13px;padding:5px 10px}
+}
+
+/* Archiv aller Einträge (Dialog im Briefbogen-Look wie der Artikel) */
+.archiv{position:fixed;inset:0;z-index:40;background:rgba(232,238,246,.55);backdrop-filter:blur(3px);
+  padding-left:max(16px, env(safe-area-inset-left,0px));padding-right:max(16px, env(safe-area-inset-right,0px))}
+.archiv-blatt{box-sizing:border-box;height:100%;min-height:0;overflow-y:auto;overscroll-behavior:contain;background:var(--panel-solid);backdrop-filter:none;padding-bottom:60px}
+.archiv-blatt h2{font-family:var(--f-display);font-weight:400;font-size:26px;margin:0}
+.ar-jahre{display:flex;flex-wrap:wrap;gap:6px;margin:18px 0 4px}
+.ar-jahre a{font-family:var(--f-mono);font-size:12.5px;color:var(--ink);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:4px 12px}
+.ar-jahre a:hover{border-color:var(--ink)}
+.ar-jahr{scroll-margin-top:70px}
+.ar-jahr h3{font-family:var(--f-display);font-weight:400;font-size:clamp(30px,5vw,40px);margin:28px 0 0;display:flex;align-items:baseline;gap:12px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.ar-jahr h3 .d{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.ar-jahr h4{font-family:var(--f-mono);font-weight:500;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--amber);margin:18px 0 4px}
+.ar-jahr ul{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.ar-jahr button{width:100%;display:grid;grid-template-columns:34px minmax(0,1fr);gap:8px;align-items:baseline;background:none;border:0;border-radius:10px;padding:9px 10px;text-align:left;color:var(--ink)}
+.ar-jahr button:hover,.ar-jahr button[aria-current="true"]{background:rgba(28,36,51,.06)}
+.ar-tag{font-family:var(--f-mono);font-size:13px;color:var(--muted);text-align:right}
+.ar-txt{display:grid;gap:2px}
+.ar-txt b{font-family:var(--f-display);font-weight:400;font-size:19px;line-height:1.2}
+.ar-txt .d{font-family:var(--f-mono);font-size:11.5px;color:var(--muted)}
+.ar-reise{color:#c0392b}
+
+/* Zuhause: Postkarte ohne Bild, mit Liste der Einträge von zuhause */
+.postcard.heim .pc-in{grid-template-columns:minmax(0,1fr)}
+.heim-liste{list-style:none;margin:0;padding:0;width:100%;display:grid;gap:2px;max-height:min(240px,40vh);overflow-y:auto;overscroll-behavior:contain}
+.heim-liste button{width:100%;display:flex;justify-content:space-between;align-items:baseline;gap:10px;background:none;border:0;border-radius:8px;padding:7px 8px;text-align:left;color:#16295e}
+.heim-liste button:hover{background:rgba(29,63,154,.07)}
+.heim-liste b{font-family:var(--f-display);font-weight:400;font-size:17px;line-height:1.2}
+.heim-liste .d{font-family:var(--f-mono);font-size:11px;color:var(--muted);white-space:nowrap}
+.ar-heim{color:#1d3f9a}

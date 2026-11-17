@@ -106,4 +106,16 @@ const einstellungen = defineCollection({
   }),
 });
 
-export const collections = { eintraege, gedichte, reisen, einstellungen };
+// Zuhause (Editor: Einstellungen → Zuhause). Neue Einträge starten im Editor mit diesem Ort (scripts/prepare.mjs);
+// Einträge bis ZUHAUSE_KM davon erscheinen auf dem Globus gemeinsam als ein Haus-Pin (src/lib/daten.ts).
+const zuhause = defineCollection({
+  loader: glob({ pattern: 'zuhause.md', base: `${basis}/einstellungen` }),
+  schema: z
+    .object({ ort: z.string().optional().nullable(), land: z.string().optional().nullable(), ...ortsFelder })
+    .transform(({ karte, breite, laenge, ort, land }) => {
+      const punkt = ortLesen({ karte, breite, laenge });
+      return { ort: ort?.trim() || '', land: land?.trim() || '', breite: punkt?.[0] ?? null, laenge: punkt?.[1] ?? null };
+    }),
+});
+
+export const collections = { eintraege, gedichte, reisen, einstellungen, zuhause };

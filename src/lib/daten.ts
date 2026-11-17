@@ -1,4 +1,4 @@
-import { getCollection } from 'astro:content';
+import { getCollection, getEntry } from 'astro:content';
 import { bausteinText, type Baustein } from './bausteine';
 
 export const datumDE = (d: Date) =>
@@ -33,6 +33,21 @@ export const lesezeit = (body = '') => Math.max(1, Math.round(reinText(body).spl
 // Verweise aus dem Editor robust auflösen (Groß/Klein, Umlaute, Dateiname)
 export const norm = (s = '') =>
   String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\.md$/, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+// Zuhause aus den Einstellungen, oder null, wenn keins (vollständig) angegeben ist
+export async function zuhause() {
+  const d = (await getEntry('zuhause', 'zuhause'))?.data;
+  if (!d || !d.ort || !d.land || d.breite == null || d.laenge == null) return null;
+  return { ort: d.ort, land: d.land, breite: d.breite, laenge: d.laenge };
+}
+
+// Einträge bis zu dieser Entfernung vom Zuhause gelten als „von zuhause“ (ein gemeinsamer Haus-Pin).
+// 2 km, weil Orte auf ca. 1 km gerundet gespeichert werden.
+export const ZUHAUSE_KM = 2;
+export const entfernungKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const r = Math.PI / 180, a = Math.sin(((lat2 - lat1) * r) / 2) ** 2 + Math.cos(lat1 * r) * Math.cos(lat2 * r) * Math.sin(((lon2 - lon1) * r) / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.sqrt(a));
+};
 
 export async function alleEintraege() {
   const a = await getCollection('eintraege', (e) => !e.data.entwurf);
@@ -90,6 +105,7 @@ export async function globusDaten() {
   const E = await alleEintraege();
   const P = await alleGedichte();
   const R = await reisenMitStationen();
+  const heim = await zuhause();
   const eintraege = E.map((e) => ({
     id: e.id,
     reise: stationVon(R, e.id)?.reise.id ?? null,
@@ -102,6 +118,7 @@ export async function globusDaten() {
     iso: e.data.datum.toISOString().slice(0, 10),
     bild: e.data.titelbild || e.data.galerie[0]?.bild || null,
     auszug: auszug(textVon(e), 120),
+    zuhause: !!heim && entfernungKm(e.data.breite, e.data.laenge, heim.breite, heim.laenge) < ZUHAUSE_KM,
     musik: e.data.lieder.length > 0 || e.data.inhalt.some((b) => b.type === 'lied' && typeof b.link === 'string' && b.link.trim() !== ''),
     url: `/${e.id}/`,
   }));
@@ -121,7 +138,9 @@ export async function globusDaten() {
   }).filter((g) => Number.isFinite(g.lat) && Number.isFinite(g.lon));
   // Reisen: Titel, Zeitraum und die Stationen in Reihenfolge (nur IDs, Rest steht bei den Einträgen)
   const reisen = R.map((r) => ({ id: r.id, titel: r.titel, zeitraum: r.zeitraum, stationen: r.stationen.map((s) => s.id) }));
-  return { eintraege, gedichte, reisen };
+  // Zuhause nur, wenn es Einträge von dort gibt (sonst kein Haus-Pin)
+  const mitHeim = heim && eintraege.some((e) => e.zuhause);
+  return { eintraege, gedichte, reisen, zuhause: mitHeim ? { ort: heim.ort, land: heim.land, lat: heim.breite, lon: heim.laenge } : null };
 }
 
 // JSON sicher in <script type="application/json"> einbetten

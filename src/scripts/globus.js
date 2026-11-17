@@ -11,6 +11,9 @@ export async function startGlobus(cfg = {}) {
   const DATA = JSON.parse($('#tb-daten').textContent);
   const ENTRIES = DATA.eintraege, POEMS = DATA.gedichte;
   const EBY = Object.fromEntries(ENTRIES.map((e) => [e.id, e]));
+  // Zuhause: Einträge „von zuhause“ teilen sich einen Haus-Pin statt vieler Pins an einer Stelle
+  const HOME = DATA.zuhause || null, HEIM = ENTRIES.filter((e) => e.zuhause);
+  let hoverHome = false;
   // Reisen: Stationen in Reihenfolge (Station 1 = erste). Einträge ohne Reise sind Tagebuch.
   const REISEN = (DATA.reisen || []).map((r) => ({ ...r, st: r.stationen.map((id) => EBY[id]).filter(Boolean) })).filter((r) => r.st.length);
   const RIDX = Object.fromEntries(REISEN.map((r, i) => [r.id, i]));
@@ -50,6 +53,8 @@ export async function startGlobus(cfg = {}) {
   const routeSegsLL = REISEN.flatMap((r, t) => r.st.slice(1).map((e, i) => [[r.st[i].lon, r.st[i].lat], [e.lon, e.lat], t]));
 
   /* ---------- Fog of War ---------- */
+  // MAXZ: stärkster Zoom (ca. 100 km Ausschnitt), ORT_KM: Ausschnitt beim Klick auf einen Eintrag
+  const MAXZ = 160, ORT_KM = 150;
   const EARTH = 6371, REV_KM = cfg.nebel?.radiusKm ?? 150, HW_KM = cfg.nebel?.routeKm ?? 40, HW = HW_KM / EARTH;
   const FOGC = { hell: [[208, 218, 231], [255, 255, 255]], vintage: [[222, 207, 176], [252, 247, 233]], punkte: [[216, 224, 235], [255, 255, 255]], linien: [[222, 228, 236], [255, 255, 255]] };
   const TW = 384, TH = 192;
@@ -161,7 +166,7 @@ export async function startGlobus(cfg = {}) {
   }
 
   /* ---------- Länder-Statistik (Fog of War pro Land) ---------- */
-  let focusC = null; const CSTAT = {};
+  let focusC = null, ortZoom = false; const CSTAT = {};
   function countryStat(id) {
     if (CSTAT[id]) return CSTAT[id];
     const f = C110.find((x) => String(x.id) === id), b = geoBounds(f); let lo0 = b[0][0], la1 = b[1][1], lo1 = b[1][0]; const la0 = b[0][1]; if (lo1 < lo0) lo1 += 360;
@@ -182,11 +187,16 @@ export async function startGlobus(cfg = {}) {
   }
   const fmtPct = (v) => v.toLocaleString('de-DE', { maximumFractionDigits: v < 10 ? 1 : 0 });
   function baseR() { return w < 760 ? Math.min(w * 0.46, h * 0.33) : Math.min(w * 0.38, h * 0.44); }
+  // Zoomfaktor, bei dem etwa `km` Kilometer auf die kürzere Bildschirmseite passen
+  function zoomFuerKm(km) { return (Math.min(w, h) / 2) * EARTH / (km / 2) / baseR(); }
+  // Klick auf einen Eintrag: nah an den Ort heran (ca. ORT_KM), nicht aufs ganze Land.
+  // Das Land bleibt für die Leiste „x % erkundet“ gemerkt.
   function focusCountry(e) {
-    const f = C110.find((x) => String(x.id) === e.cid); if (!f) { flyTo(e, 1600, false, false, 2.5); return; } focusC = e.cid;
-    const cen = geoCentroid(f), b = geoBounds(f), r = 0.8 * Math.max(...[b[0], b[1], [b[0][0], b[1][1]], [b[1][0], b[0][1]]].map((q) => geoDistance(cen, q)));
-    const z = Math.max(1.5, Math.min(7, (Math.min(w, h) * 0.3) / (baseR() * Math.sin(Math.min(Math.max(r, 0.02), 1.2)))));
-    flyTo({ lon: cen[0] * 0.55 + e.lon * 0.45, lat: cen[1] * 0.55 + e.lat * 0.45 }, 1900, false, true, z); updateCbar();
+    focusC = C110.some((x) => String(x.id) === e.cid) ? e.cid : null; ortZoom = true;
+    const z = Math.max(1.5, Math.min(MAXZ, zoomFuerKm(ORT_KM)));
+    // Am Handy liegt die Postkarte unten: Ort etwas oberhalb der Mitte zeigen
+    const hoch = w <= 640 ? ((h * 0.22) / (baseR() * z)) * (180 / Math.PI) : 0;
+    flyTo({ lon: e.lon, lat: e.lat - hoch }, 1900, false, true, z); updateCbar();
   }
   function updateCbar() {
     const bar = $('#cbar'); if (!bar) return; if (!focusC) { bar.hidden = true; return; }
@@ -318,9 +328,9 @@ export async function startGlobus(cfg = {}) {
     if (modus === 'home') tgt.R *= zoom;
   }
   function layout() { dpr = Math.min(devicePixelRatio || 1, 2); w = innerWidth; h = innerHeight; cv.width = w * dpr; cv.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); setTarget(); if (!cur.R) cur = { ...tgt }; }
-  function setZoom(z) { zoom = Math.max(0.8, Math.min(8, z)); setTarget(); }
+  function setZoom(z) { zoom = Math.max(0.8, Math.min(MAXZ, z)); setTarget(); }
   function flyTo(e, dur = 2400, spin = false, exact = false, toZoom) {
-    const z1 = Math.max(0.8, Math.min(8, toZoom ?? zoom)), off = exact ? 0 : 8 / Math.max(1, z1); const from = rot.slice(), to = [-e.lon, -e.lat + off, 0];
+    const z1 = Math.max(0.8, Math.min(MAXZ, toZoom ?? zoom)), off = exact ? 0 : 8 / Math.max(1, z1); const from = rot.slice(), to = [-e.lon, -e.lat + off, 0];
     while (to[0] - from[0] > 180) to[0] -= 360; while (to[0] - from[0] < -180) to[0] += 360; if (spin) to[0] += to[0] >= from[0] ? 360 : -360;
     const dist = geoDistance([-from[0], -from[1]], [-to[0], -to[1]]);
     fly = { from, to, t0: performance.now(), dur: reduce ? 1 : dur, z0: zoom, z1, dip: Math.max(0, Math.min(Math.log(Math.max(zoom, z1)), dist * 1.4)) };
@@ -379,8 +389,9 @@ export async function startGlobus(cfg = {}) {
     if (G.shade) { const sh = ctx.createRadialGradient(cx - Rr * 0.4, cy - Rr * 0.45, Rr * 0.2, cx, cy, Rr * 1.02); sh.addColorStop(0, G.shade[0]); sh.addColorStop(0.7, G.shade[1]); sh.addColorStop(1, G.shade[2]); ctx.beginPath(); path({ type: 'Sphere' }); ctx.fillStyle = sh; ctx.fill(); }
     if (G.rim) { ctx.beginPath(); path({ type: 'Sphere' }); ctx.strokeStyle = G.rim; ctx.lineWidth = 1.4; ctx.stroke(); if (gstyle === 'vintage') { ctx.beginPath(); ctx.arc(cx, cy, Rr + 7, 0, 7); ctx.lineWidth = 0.8; ctx.stroke(); } }
     drawSteps(now, G, Rr, center);
+    if (HOME && HEIM.length && geoDistance([HOME.lon, HOME.lat], center) < 1.5) drawHome(now);
     for (const e of ENTRIES) {
-      if (geoDistance([e.lon, e.lat], center) > 1.5) continue; const [x, y] = proj([e.lon, e.lat]); const isA = e === active;
+      if (e.zuhause || geoDistance([e.lon, e.lat], center) > 1.5) continue; const [x, y] = proj([e.lon, e.lat]); const isA = e === active;
       if (isA) { const p = (now % 1800) / 1800; ctx.beginPath(); ctx.arc(x, y, 6 + p * 22, 0, 7); ctx.strokeStyle = `rgba(242,165,65,${1 - p})`; ctx.lineWidth = 2; ctx.stroke(); }
       ctx.beginPath(); ctx.arc(x, y, isA ? 6 : 4, 0, 7); ctx.fillStyle = isA ? '#ec8a1e' : '#ffffff'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#1c2433'; ctx.stroke();
       if (modus === 'home' && ((e === hoverE && e !== cardE) || (isA && !fly && !cardE))) { ctx.font = '500 12px "IBM Plex Mono", monospace'; ctx.fillStyle = '#1c2433'; const hv = e === hoverE; ctx.textAlign = hv ? 'left' : 'right'; ctx.fillText(e.ort.toUpperCase(), hv ? x + 12 : x - 14, y + 4); ctx.textAlign = 'left'; }
@@ -392,9 +403,11 @@ export async function startGlobus(cfg = {}) {
         const [x, y] = proj([cardE.lon, cardE.lat]), cw = pc.offsetWidth, ch = pc.offsetHeight, g = 40;
         const others = ENTRIES.filter((e) => e !== cardE && geoDistance([e.lon, e.lat], center) < 1.5).map((e) => proj([e.lon, e.lat])).concat(poemPos.filter((q) => q.vis).map((q) => [q.x, q.y]));
         const cands = [[x - g - cw, y - ch / 2], [x + g, y - ch / 2], [x - cw / 2, y - g - ch], [x - cw / 2, y + g], [x - 160 - cw, y - ch / 2], [x + 160, y - ch / 2], [x - 160 - cw, y - ch * 0.8], [x + 160, y - ch * 0.2]];
+        // Niedrige Bildschirme (Handy quer): kleine Ränder, damit die Karte nicht oben herausrutscht
+        const flach = h < 520, tMin = flach ? 8 : focusC ? 222 : 86, tMax = flach ? h - ch - 8 : h - ch - 130;
         let best = null, bs = 1e9;
         cands.forEach(([l0, t0], i) => {
-          const l = Math.min(w - cw - 16, Math.max(16, l0)), t = Math.min(h - ch - 130, Math.max(focusC ? 222 : 86, t0)); let sc = i * 0.1;
+          const l = Math.min(w - cw - 16, Math.max(16, l0)), t = Math.max(8, Math.min(tMax, Math.max(tMin, t0))); let sc = i * 0.1;
           for (const [ox, oy] of others) if (ox > l - 14 && ox < l + cw + 14 && oy > t - 14 && oy < t + ch + 14) sc += 10;
           if (x > l - 16 && x < l + cw + 16 && y > t - 16 && y < t + ch + 16) sc += 100; if (sc < bs) { bs = sc; best = [l, t]; }
         });
@@ -433,13 +446,23 @@ export async function startGlobus(cfg = {}) {
   if (modus !== 'home') return;
 
   /* ================= Bedienung (nur Startseite) ================= */
-  function pinAt(px, py, rad) { const center = [-rot[0], -rot[1]]; let best = null, bd = rad; for (const e of ENTRIES) { if (geoDistance([e.lon, e.lat], center) > 1.5) continue; const [x, y] = proj([e.lon, e.lat]), d = Math.hypot(px - x, py - y); if (d < bd) { bd = d; best = e; } } return best; }
-  function pinsNear(px, py, rad) { const center = [-rot[0], -rot[1]]; return ENTRIES.filter((e) => { if (geoDistance([e.lon, e.lat], center) > 1.5) return false; const [x, y] = proj([e.lon, e.lat]); return Math.hypot(px - x, py - y) < rad; }); }
+  // Haus-Pin fürs Zuhause: kleines Haus, orange wenn ein Zuhause-Eintrag oder die Zuhause-Karte offen ist
+  function drawHome(now) {
+    const [x, y] = proj([HOME.lon, HOME.lat]), an = (active && active.zuhause) || (cardE && cardE.heim);
+    if (an) { const p = (now % 1800) / 1800; ctx.beginPath(); ctx.arc(x, y - 2, 8 + p * 22, 0, 7); ctx.strokeStyle = `rgba(242,165,65,${1 - p})`; ctx.lineWidth = 2; ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(x - 8, y - 1); ctx.lineTo(x, y - 9); ctx.lineTo(x + 8, y - 1); ctx.lineTo(x + 6, y - 1); ctx.lineTo(x + 6, y + 7); ctx.lineTo(x - 6, y + 7); ctx.lineTo(x - 6, y - 1); ctx.closePath();
+    ctx.fillStyle = an ? '#ec8a1e' : '#ffffff'; ctx.fill(); ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1c2433'; ctx.stroke();
+    if (modus === 'home' && (hoverHome || (an && !fly && !cardE))) { ctx.font = '500 12px "IBM Plex Mono", monospace'; ctx.fillStyle = '#1c2433'; ctx.fillText('ZUHAUSE · ' + HOME.ort.toUpperCase(), x + 14, y + 4); }
+  }
+  function homeAt(px, py, rad) { if (!HOME || !HEIM.length || geoDistance([HOME.lon, HOME.lat], [-rot[0], -rot[1]]) > 1.5) return false; const [x, y] = proj([HOME.lon, HOME.lat]); return Math.hypot(px - x, py - y + 1) < rad; }
+  function pinAt(px, py, rad) { const center = [-rot[0], -rot[1]]; let best = null, bd = rad; for (const e of ENTRIES) { if (e.zuhause || geoDistance([e.lon, e.lat], center) > 1.5) continue; const [x, y] = proj([e.lon, e.lat]), d = Math.hypot(px - x, py - y); if (d < bd) { bd = d; best = e; } } return best; }
+  function pinsNear(px, py, rad) { const center = [-rot[0], -rot[1]]; return ENTRIES.filter((e) => { if (e.zuhause || geoDistance([e.lon, e.lat], center) > 1.5) return false; const [x, y] = proj([e.lon, e.lat]); return Math.hypot(px - x, py - y) < rad; }); }
   cv.addEventListener('click', (ev) => {
     if (dragMoved) { dragMoved = false; return; }
     const pi = poemAt(ev.clientX, ev.clientY, 12); if (pi !== null) { const q = poemPos.find((q) => q.i === pi); openLetter(pi, q ? [q.x, q.y] : null); return; }
+    if (homeAt(ev.clientX, ev.clientY, 16)) { openHome(); return; }
     const near = pinsNear(ev.clientX, ev.clientY, 24);
-    if (near.length >= 2 && zoom < 7.5) { const c = near.reduce((a, e) => [a[0] + e.lon / near.length, a[1] + e.lat / near.length], [0, 0]); flyTo({ lon: c[0], lat: c[1] }, 1000, false, true, Math.min(8, zoom * 2.4)); toast('Mehrere Orte liegen hier dicht beieinander, herangezoomt.'); return; }
+    if (near.length >= 2 && zoom < MAXZ * 0.9) { const c = near.reduce((a, e) => [a[0] + e.lon / near.length, a[1] + e.lat / near.length], [0, 0]); flyTo({ lon: c[0], lat: c[1] }, 1000, false, true, Math.min(MAXZ, zoom * 2.4)); toast('Mehrere Orte liegen hier dicht beieinander, herangezoomt.'); return; }
     const hit = pinAt(ev.clientX, ev.clientY, 22); if (hit) { select(hit); return; }
     closeCard();
   });
@@ -451,7 +474,7 @@ export async function startGlobus(cfg = {}) {
   });
   cv.addEventListener('pointermove', (ev) => {
     lastMouse = [ev.clientX, ev.clientY];
-    if (!ptrs.has(ev.pointerId)) { hoverPoem = poemAt(ev.clientX, ev.clientY, 12); const f = hoverPoem === null ? pinAt(ev.clientX, ev.clientY, 18) : null; hoverE = f; cv.style.cursor = f || hoverPoem !== null ? 'pointer' : ''; return; }
+    if (!ptrs.has(ev.pointerId)) { hoverPoem = poemAt(ev.clientX, ev.clientY, 12); hoverHome = hoverPoem === null && homeAt(ev.clientX, ev.clientY, 16); const f = hoverPoem === null && !hoverHome ? pinAt(ev.clientX, ev.clientY, 18) : null; hoverE = f; cv.style.cursor = f || hoverHome || hoverPoem !== null ? 'pointer' : ''; return; }
     ptrs.set(ev.pointerId, [ev.clientX, ev.clientY]);
     if (pinch && ptrs.size === 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (d > 0) setZoom((pinch.z * d) / pinch.d); dragMoved = true; return; }
     if (drag) {
@@ -462,7 +485,7 @@ export async function startGlobus(cfg = {}) {
   });
   function endPtr(ev) { ptrs.delete(ev.pointerId); if (ptrs.size < 2) pinch = null; if (ptrs.size === 0) { if (drag && performance.now() - drag.t > 90) vel = [0, 0]; drag = null; cv.classList.remove('dragging'); } }
   cv.addEventListener('pointerup', endPtr); cv.addEventListener('pointercancel', endPtr);
-  cv.addEventListener('mouseleave', () => { hoverE = null; hoverPoem = null; lastMouse = null; });
+  cv.addEventListener('mouseleave', () => { hoverE = null; hoverHome = false; hoverPoem = null; lastMouse = null; });
   cv.addEventListener('wheel', (ev) => { ev.preventDefault(); setZoom(zoom * Math.exp(-ev.deltaY * 0.0015)); }, { passive: false });
   $('#zIn').onclick = () => setZoom(zoom * 1.5); $('#zOut').onclick = () => setZoom(zoom / 1.5);
   $('#zReset').onclick = () => { const a = cardE || active; closeCard(true); vel = [0, 0]; flyTo(a, 1300, false, false, 1); };
@@ -479,7 +502,7 @@ export async function startGlobus(cfg = {}) {
   const esc = (s = '') => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   function select(e, spin) { active = e; openCard(e); if (spin) { flyTo(e, 3000, true, false, 1); setTimeout(() => { if (cardE === e) focusCountry(e); }, 3000); } else focusCountry(e); }
   function openCard(e) {
-    cardE = e;
+    cardE = e; pc.classList.remove('heim'); $('#pcImgLink').hidden = false;
     $('#pcImg').src = e.bild || ''; $('#pcImg').alt = `Titelbild: ${e.ort}`; $('#pcImg').hidden = !e.bild;
     const art = e === ENTRIES[0] ? 'Neuester Eintrag' : vorEinemJahr.includes(e) ? 'Heute vor einem Jahr' : 'Eintrag';
     $('#pcEyebrow').textContent = e.reiseTitel ? (art === 'Eintrag' ? `Reise · ${e.reiseTitel}` : `${art} · Reise ${e.reiseTitel}`) : art;
@@ -489,7 +512,18 @@ export async function startGlobus(cfg = {}) {
     pc.hidden = false; pc.classList.add('away'); pc.classList.remove('pop-in'); void pc.offsetWidth; pc.classList.add('pop-in');
     document.querySelectorAll('#entryList button').forEach((b) => b.setAttribute('aria-current', String(b.dataset.id === e.id)));
   }
-  function closeCard(keepView) { cardE = null; pc.hidden = true; if (focusC) { focusC = null; $('#cbar').hidden = true; if (!keepView) flyTo({ lon: -rot[0], lat: -rot[1] }, 1200, false, true, 1); } }
+  // Zuhause-Karte: dieselbe Postkarte, aber ohne Bild und mit der Liste der Einträge von zuhause (neueste zuerst)
+  function openHome() {
+    active = null; cardE = { heim: true, lon: HOME.lon, lat: HOME.lat }; pc.classList.add('heim'); $('#pcImgLink').hidden = true;
+    $('#pcEyebrow').textContent = 'Zuhause'; $('#pcTitle').textContent = HOME.ort;
+    $('#pcMeta').textContent = `${HOME.land} · ${HEIM.length} ${HEIM.length === 1 ? 'Eintrag' : 'Einträge'} von zuhause`; $('#pcEx').hidden = true; $('#pcPm').textContent = HOME.ort.toUpperCase();
+    $('#pcActions').innerHTML = `<ul class="heim-liste">${HEIM.map((e) => `<li><button data-id="${esc(e.id)}"><b>${esc(e.titel)}</b><span class="d">${esc(e.datum)}</span></button></li>`).join('')}</ul>`;
+    pc.hidden = false; pc.classList.add('away'); pc.classList.remove('pop-in'); void pc.offsetWidth; pc.classList.add('pop-in');
+    focusC = null; ortZoom = true; $('#cbar').hidden = true;
+    flyTo(HOME, 1600, false, true, Math.max(1.5, Math.min(MAXZ, zoomFuerKm(ORT_KM * 3))));
+  }
+  $('#pcActions').addEventListener('click', (ev) => { const b = ev.target.closest('.heim-liste button'); if (b) select(EBY[b.dataset.id]); });
+  function closeCard(keepView) { cardE = null; pc.hidden = true; if (focusC || ortZoom) { focusC = null; ortZoom = false; $('#cbar').hidden = true; if (!keepView) flyTo({ lon: -rot[0], lat: -rot[1] }, 1200, false, true, 1); } }
   $('#pcClose').onclick = () => closeCard();
 
   /* ---------- Gedicht-Brief ---------- */
@@ -513,25 +547,39 @@ export async function startGlobus(cfg = {}) {
   /* ---------- Leiste unten: Statistik, Listen, Extras ---------- */
   let km = 0; for (const [a, b] of routeSegsLL) km += geoDistance(a, b) * EARTH; // nur Strecken innerhalb von Reisen
   const pct = (exploredArea() / (4 * Math.PI * EARTH * EARTH)) * 100;
-  $('#stats').innerHTML = `<span><b>${ENTRIES.length}</b> ${ENTRIES.length === 1 ? 'Ort' : 'Orte'}</span><button class="st-btn" id="ctyBtn" aria-expanded="false" aria-controls="ctyPop"><b>${VISITED.length}</b> ${VISITED.length === 1 ? 'Land' : 'Länder'}</button><span${km > 0 ? '' : ' hidden'}><b>${Math.round(km).toLocaleString('de-DE')} km</b> unterwegs</span><span><b>${pct.toLocaleString('de-DE', { maximumFractionDigits: 2 })} %</b> der Welt entdeckt</span>`;
-  // Liste: Reisen als Gruppe mit ihren Stationen (1, 2, 3 …), dazwischen einzelne Tagebuch-Einträge; neueste zuerst
-  const eintragLi = (e, nr) => `<li><button data-id="${esc(e.id)}"><span>${nr ? `<span class="d">${e.nr}.</span> ` : ''}${esc(e.ort)}<span class="d"> · ${esc(e.land)}</span></span><span class="d">${esc(e.datum)}</span></button></li>`;
-  const gruppen = []; for (const e of ENTRIES) { const r = e.reise != null ? REISEN[RIDX[e.reise]] : null; if (!r) gruppen.push({ e }); else if (!gruppen.some((g) => g.r === r)) gruppen.push({ r }); }
-  $('#entryList').innerHTML = gruppen.map((g) => (g.e ? eintragLi(g.e, false) : `<li class="trip"><p class="trip-h"><span>✈ ${esc(g.r.titel)}</span><span class="d">${esc(g.r.zeitraum)} · ${g.r.st.length} ${g.r.st.length === 1 ? 'Station' : 'Stationen'}</span></p><ul>${g.r.st.map((e) => eintragLi(e, true)).join('')}</ul></li>`)).join('');
-  $('#entryList').addEventListener('click', (ev) => { const b = ev.target.closest('button'); if (!b) return; select(EBY[b.dataset.id]); $('#entryPop').hidden = true; $('#listBtn').setAttribute('aria-expanded', 'false'); });
-  $('#listBtn').onclick = () => { const p = $('#entryPop'); p.hidden = !p.hidden; $('#listBtn').setAttribute('aria-expanded', String(!p.hidden)); };
-  $('#skipList').onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); $('#entryPop').hidden = false; $('#listBtn').setAttribute('aria-expanded', 'true'); $('#entryList button')?.focus(); };
+  const orte = ENTRIES.length - HEIM.length + (HEIM.length ? 1 : 0); // Zuhause zählt als ein Ort
+  $('#stats').innerHTML = `<span><b>${orte}</b> ${orte === 1 ? 'Ort' : 'Orte'}</span><button class="st-btn" id="ctyBtn" aria-expanded="false" aria-controls="ctyPop"><b>${VISITED.length}</b> ${VISITED.length === 1 ? 'Land' : 'Länder'}</button><span${km > 0 ? '' : ' hidden'}><b>${Math.round(km).toLocaleString('de-DE')} km</b> unterwegs</span><span><b>${pct.toLocaleString('de-DE', { maximumFractionDigits: 2 })} %</b> der Welt entdeckt</span>`;
+  // Archiv: nach Jahr und Monat, neueste zuerst; Stationen stehen in ihrem Monat mit Reise-Hinweis
+  const MONATE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+  const nachJahr = new Map();
+  for (const e of [...ENTRIES].sort((a, b) => (a.iso < b.iso ? 1 : a.iso > b.iso ? -1 : 0))) {
+    const [j, m] = e.iso.split('-'); if (!nachJahr.has(j)) nachJahr.set(j, new Map());
+    const mm = nachJahr.get(j); if (!mm.has(m)) mm.set(m, []); mm.get(m).push(e);
+  }
+  const arEintrag = (e) => { const r = e.reise != null ? REISEN[RIDX[e.reise]] : null;
+    return `<li><button data-id="${esc(e.id)}"><span class="ar-tag">${Number(e.iso.slice(8, 10))}.</span><span class="ar-txt"><b>${esc(e.titel)}</b><span class="d">${esc(e.ort)} · ${esc(e.land)}${r ? ` · <span class="ar-reise">✈ Reise · ${esc(r.titel)}</span>` : ''}${e.zuhause ? ' · <span class="ar-heim">⌂ Zuhause</span>' : ''}</span></span></button></li>`; };
+  $('#arJahre').innerHTML = nachJahr.size > 1 ? [...nachJahr.keys()].map((j) => `<a href="#ar-${j}">${j}</a>`).join('') : '';
+  $('#entryList').innerHTML = [...nachJahr].map(([j, mm]) => { const n = [...mm.values()].reduce((a, l) => a + l.length, 0);
+    return `<section class="ar-jahr" id="ar-${j}"><h3>${j} <span class="d">${n} ${n === 1 ? 'Eintrag' : 'Einträge'}</span></h3>${[...mm].map(([m, l]) => `<h4>${MONATE[Number(m) - 1]}</h4><ul>${l.map(arEintrag).join('')}</ul>`).join('')}</section>`; }).join('');
+  const archiv = $('#archiv'); let arVon = null;
+  function archivAuf() { arVon = document.activeElement; archiv.hidden = false; document.body.classList.add('dim'); $('#listBtn').setAttribute('aria-expanded', 'true'); archiv.querySelector('.archiv-blatt').scrollTop = 0; $('#entryList button[aria-current="true"]')?.scrollIntoView({ block: 'center' }); ($('#entryList button[aria-current="true"]') || $('#arClose')).focus(); }
+  function archivZu(fokusZurueck = true) { if (archiv.hidden) return; archiv.hidden = true; document.body.classList.remove('dim'); $('#listBtn').setAttribute('aria-expanded', 'false'); if (fokusZurueck) arVon?.focus?.(); }
+  $('#entryList').addEventListener('click', (ev) => { const b = ev.target.closest('button'); if (!b) return; archivZu(false); select(EBY[b.dataset.id]); });
+  $('#arJahre').addEventListener('click', (ev) => { const a = ev.target.closest('a'); if (!a) return; ev.preventDefault(); $(a.getAttribute('href'))?.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+  $('#listBtn').onclick = () => (archiv.hidden ? archivAuf() : archivZu());
+  $('#arClose').onclick = () => archivZu();
+  archiv.addEventListener('click', (ev) => { if (ev.target === archiv) archivZu(); });
+  $('#skipList').onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); archivAuf(); };
   function renderCty() {
     const rows = VISITED.map((id) => ({ id, n: CNAME[id], st: countryStat(id) })).sort((a, b) => b.st.pct - a.st.pct);
     $('#ctyList').innerHTML = `<li class="sep">Fog of War pro Land</li>` + rows.map((r) => `<li><button class="cty" data-c="${r.id}"><span>${esc(r.n)}</span><span class="cm"><i style="width:${Math.max(2, r.st.pct)}%"></i></span><span class="d">${fmtPct(r.st.pct)} %</span></button></li>`).join('');
   }
   $('#ctyList').addEventListener('click', (ev) => { const b = ev.target.closest('[data-c]'); if (!b) return; const e = ENTRIES.find((x) => x.cid === b.dataset.c); $('#ctyPop').hidden = true; if (e) select(e); });
   document.addEventListener('click', (ev) => {
-    if (ev.target.closest('#ctyBtn')) { const p = $('#ctyPop'); if (p.hidden) renderCty(); p.hidden = !p.hidden; $('#ctyBtn').setAttribute('aria-expanded', String(!p.hidden)); $('#entryPop').hidden = true; return; }
+    if (ev.target.closest('#ctyBtn')) { const p = $('#ctyPop'); if (p.hidden) renderCty(); p.hidden = !p.hidden; $('#ctyBtn').setAttribute('aria-expanded', String(!p.hidden)); return; }
     if (!ev.target.closest('#ctyPop')) $('#ctyPop').hidden = true;
-    if (!ev.target.closest('#entryPop,#listBtn,#skipList')) { $('#entryPop').hidden = true; $('#listBtn').setAttribute('aria-expanded', 'false'); }
   });
-  addEventListener('keydown', (ev) => { if (ev.key !== 'Escape') return; if (letterPoem !== null) return closeLetter(); if (!$('#entryPop').hidden) { $('#entryPop').hidden = true; return; } closeCard(); });
+  addEventListener('keydown', (ev) => { if (ev.key !== 'Escape') return; if (letterPoem !== null) return closeLetter(); if (!archiv.hidden) return archivZu(); closeCard(); });
   // Heute vor einem Jahr (bzw. vor mehreren Jahren)
   const heute = new Date(), md = `${String(heute.getMonth() + 1).padStart(2, '0')}-${String(heute.getDate()).padStart(2, '0')}`;
   const vorEinemJahr = ENTRIES.filter((e) => e.iso.slice(5) === md && Number(e.iso.slice(0, 4)) < heute.getFullYear());
