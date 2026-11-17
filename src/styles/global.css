@@ -264,7 +264,7 @@ a.pc-btn.primary{color:#fff}
 .liedwechsel{display:flex;align-items:center;gap:10px;margin:26px 0;padding:10px 14px;border:1px dashed rgba(207,111,16,.5);border-radius:10px;font-family:var(--f-mono);font-size:12.5px;color:var(--amber)}
 .liedwechsel.active{background:rgba(242,165,65,.12)}
 /* Bausteine: Notizzettel, Fotostreifen, Fußspuren vor einem Liedwechsel */
-.zettel{font-family:var(--f-hand);font-size:clamp(22px,2.6vw,27px);line-height:1.22;background:#fff6c9;color:#2b2a22;padding:18px 20px 16px;margin:32px 6px;max-width:440px;transform:rotate(-1.2deg);box-shadow:0 8px 18px rgba(20,30,50,.13);position:relative}
+.zettel{font-family:var(--f-hand);font-size:clamp(22px,2.6vw,27px);line-height:1.22;background:#fff6c9;color:#2b2a22;padding:18px 20px 16px;margin:32px auto;max-width:440px;transform:rotate(-1.2deg);box-shadow:0 8px 18px rgba(20,30,50,.13);position:relative}
 .zettel::before{content:"";position:absolute;top:-10px;left:50%;width:86px;height:22px;transform:translateX(-50%) rotate(2deg);background:rgba(208,41,47,.22)}
 .streifen-bilder{display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr));gap:8px}
 .text .streifen-bilder img,.streifen-bilder img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:8px;display:block}
