@@ -60,6 +60,8 @@ const neuester = eintraege[0];
         <p class="pc-ex" id="pcEx" hidden></p>
       </div>
       <div class="pc-actions" id="pcActions"></div>
+      {/* Stapel: mehrere Einträge am selben Ort – blättern per ‹ › oder Wischen (globus.js, stapelWechsel) */}
+      <div class="pc-stapel" id="pcStapel" hidden><button id="pcVor" aria-label="Vorheriger Eintrag hier">‹</button><span id="pcNr"></span><button id="pcNach" aria-label="Nächster Eintrag hier">›</button></div>
       <div class="pc-pm" id="pcPm"></div>
     </div>
   </div>
