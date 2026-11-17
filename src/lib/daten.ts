@@ -74,9 +74,13 @@ export function ortAusPunkt(lat: number, lon: number) {
 // am Zuhause (unter ZUHAUSE_KM) mit dem Zuhause, sonst aus dem Punkt. Eigene Eingaben haben immer Vorrang.
 export async function alleEintraege() {
   const [a, heim] = await Promise.all([getCollection('eintraege', (e) => !e.data.entwurf), zuhause()]);
+  const ohneHeim = a.filter((e) => e.data.zuhauseGewaehlt && !heim).map((e) => e.id);
+  if (ohneHeim.length) throw new Error(`„Zuhause“ gewählt, aber im Editor unter Einstellungen → Zuhause fehlt Ort, Land oder Punkt (betrifft: ${ohneHeim.join(', ')}).`);
   return a
     .map((e) => {
-      const d = e.data; if (d.ort && d.land) return e;
+      // „Zuhause“ gewählt: Punkt vom Zuhause (Ort/Land folgen unten über amZuhause)
+      const d = e.data.zuhauseGewaehlt && heim ? { ...e.data, breite: heim.breite, laenge: heim.laenge } : e.data;
+      if (d.ort && d.land) return d === e.data ? e : { ...e, data: d };
       const amZuhause = heim && entfernungKm(d.breite, d.laenge, heim.breite, heim.laenge) < ZUHAUSE_KM;
       const v = amZuhause ? { ort: heim.ort, land: heim.land } : ortAusPunkt(d.breite, d.laenge);
       return { ...e, data: { ...d, ort: d.ort || v.ort, land: d.land || v.land } };

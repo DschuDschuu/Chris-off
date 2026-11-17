@@ -68,7 +68,9 @@
   function Eintrag({ entry, getAsset }) {
     const d = entry.get('data') ? entry.get('data').toJS() : {};
     const bausteine = Array.isArray(d.inhalt) ? d.inhalt : [];
-    const ort = [d.ort, d.land].filter(Boolean).join(', ');
+    const wahl = typeof d.ortswahl === 'string' ? d.ortswahl : '';
+    const punkt = wahl && wahl !== 'zuhause' ? wahl : d.karte; // „Hier bin ich“ hat Vorrang vor der Karte
+    const ort = [d.ort, d.land].filter(Boolean).join(', ') || (wahl === 'zuhause' ? 'Zuhause' : wahl ? 'Ort wird beim Veröffentlichen ergänzt' : '');
     const inhalt = [].concat(markdown(d.body, 'alt'), bausteine.map((b, i) => baustein(b, i, getAsset)));
     return h('div', { className: 'lesen vorschau' },
       h('article', { className: 'sheet art' },
@@ -76,7 +78,7 @@
           h('p', { className: 'eyebrow' }, [datumDE(d.datum), ort].filter(Boolean).join(' · ')),
           d.reise ? h('p', { className: 'reise-zeile' }, '✈ Station einer Reise') : null,
           h('h1', null, d.titel || 'Noch ohne Titel'),
-          koord(d.karte) ? h('p', { className: 'mono' }, koord(d.karte)) : null),
+          koord(punkt) ? h('p', { className: 'mono' }, koord(punkt)) : null),
         d.titelbild ? h('figure', null, h('img', { src: String(getAsset(d.titelbild)), alt: '' })) : null,
         h('div', { className: 'text' }, inhalt.filter(Boolean).length ? inhalt : h('p', { className: 'leer' }, 'Füge links unter „Inhalt“ den ersten Baustein hinzu.')),
         d.persoenliches ? h('section', { className: 'personal' }, h('h2', null, 'Persönliches'), h('p', { className: 'ptext' }, d.persoenliches)) : null,

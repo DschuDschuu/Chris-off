@@ -19,7 +19,7 @@ async function zuhauseLesen() {
     const g = typeof d.karte === 'string' ? JSON.parse(d.karte) : d.karte;
     const [lon, lat] = g?.type === 'Point' ? g.coordinates : [];
     if (!d.ort || !d.land || !Number.isFinite(lon) || !Number.isFinite(lat)) return null;
-    return { ort: String(d.ort).trim(), land: String(d.land).trim(), karte: JSON.stringify({ type: 'Point', coordinates: [lon, lat] }) };
+    return { ort: String(d.ort).trim(), land: String(d.land).trim(), lat, lon };
   } catch { return null; }
 }
 
@@ -54,14 +54,17 @@ for (const f of ['countries-110m.json', 'countries-50m.json']) {
 // Ortsnamen rund um veröffentlichte Einträge (40 km, Nebel ist nur 25 km um jeden Ort frei). Entwürfe zählen
 // bewusst nicht mit, sonst würden Ortsnamen einen noch unveröffentlichten Ort verraten. Siehe scripts/orte.mjs.
 {
-  const punkte = [];
+  const punkte = [], heim = await zuhauseLesen();
   const ordner = path.join(contentDir, 'eintraege');
   for (const f of (await exists(ordner)) ? await fs.readdir(ordner, { recursive: true }) : []) {
     if (!f.endsWith('.md')) continue;
     const d = matter(await fs.readFile(path.join(ordner, f), 'utf8')).data;
     if (d.entwurf === true) continue;
+    // Punkt wie im Schema: „Wo bist du?“ (zuhause / Standort) vor Karte vor breite/laenge
     let lat = Number(d.breite), lon = Number(d.laenge);
     try { const g = typeof d.karte === 'string' ? JSON.parse(d.karte) : d.karte; if (g?.type === 'Point') [lon, lat] = g.coordinates; } catch {}
+    try { const g = typeof d.ortswahl === 'string' && d.ortswahl.startsWith('{') ? JSON.parse(d.ortswahl) : null; if (g?.type === 'Point') [lon, lat] = g.coordinates; } catch {}
+    if (d.ortswahl === 'zuhause' && heim) [lat, lon] = [heim.lat, heim.lon];
     if (Number.isFinite(lat) && Number.isFinite(lon)) punkte.push([lat, lon]);
   }
   const { orteLesen, orteRundUm } = await import('./orte.mjs');
@@ -112,18 +115,8 @@ await fs.writeFile(listeDatei, JSON.stringify(neu));
 // 3. Editor-Konfiguration
 const vorlage = await fs.readFile(path.join(root, 'admin-vorlage/config.yml'), 'utf8');
 await fs.mkdir(path.join(pub, 'admin'), { recursive: true });
-// Zuhause (einstellungen/zuhause.md) als Startpunkt der Karte neuer Einträge (Ort/Land ergänzt der Bau, siehe daten.ts).
-// Ohne Zuhause bleiben die Felder leer. JSON-Strings sind gültiges YAML, daher JSON.stringify.
-const heim = await zuhauseLesen();
-await fs.writeFile(
-  path.join(pub, 'admin/config.yml'),
-  vorlage
-    .replaceAll('__REPO__', site.inhalteRepo)
-    .replaceAll('__URL__', site.url)
-    .replaceAll('__ZUHAUSE_KARTE__', JSON.stringify(heim?.karte ?? '')),
-);
-console.log(heim ? `Editor: neue Einträge starten mit dem Punkt von Zuhause ${heim.ort}` : 'Editor: kein Zuhause angegeben, Karte startet leer');
-for (const f of ['index.html', 'editor.css', 'vorschau.js']) await fs.copyFile(path.join(root, 'admin-vorlage', f), path.join(pub, 'admin', f));
+await fs.writeFile(path.join(pub, 'admin/config.yml'), vorlage.replaceAll('__REPO__', site.inhalteRepo).replaceAll('__URL__', site.url));
+for (const f of ['index.html', 'editor.css', 'vorschau.js', 'ortswahl.js']) await fs.copyFile(path.join(root, 'admin-vorlage', f), path.join(pub, 'admin', f));
 
 // Schriften für Editor und Vorschau (dieselben wie auf der Seite, liegen auf dem eigenen Server)
 const SCHRIFTEN = [

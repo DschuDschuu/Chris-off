@@ -116,3 +116,20 @@ section.field[data-key-path="ganz_persoenlich"]::after {
   /* auf dem Handy rückt Sveltia die Bausteine nur 12 px ein */
   div:has(> section.field[data-key-path="datum"]) > section.field:is([data-key-path="datum"], [data-key-path="reise"], [data-key-path="ort"], [data-key-path="land"], [data-key-path="karte"], [data-key-path="uhrzeit"], [data-key-path="wetter"], [data-key-path="titelbild"], [data-key-path="galerie"], [data-key-path="vorlesen"], [data-key-path="entwurf"]) { margin: 6px 12px !important; }
 }
+
+/* ---- „Wo bist du?“ (ortswahl.js): Knöpfe Zuhause / Hier bin ich; ist etwas gewählt, klappen Ort, Land und Karte ein ---- */
+section.field[data-key-path="ortswahl"] { --feld: var(--bernstein); }
+section.field[data-key-path="ortswahl"] > header > h4::before { content: "near_me"; }
+div:has(> section.field[data-key-path="datum"]) > section.field[data-key-path="ortswahl"] {
+  flex: 1 1 100% !important; background: color-mix(in srgb, var(--feld) 6%, transparent) !important; border-left: 5px solid var(--feld) !important;
+  border-radius: 10px !important; padding: 12px 14px !important; margin: 6px 16px !important;
+}
+body.ort-eingeklappt section.field:is([data-key-path="ort"], [data-key-path="land"], [data-key-path="karte"]) { display: none !important; }
+.ortswahl .ow-knoepfe { display: flex; flex-wrap: wrap; gap: 10px; }
+.ortswahl .ow-knopf { font: 700 15px Arial, sans-serif; padding: 11px 18px; border-radius: 999px; border: 2px solid var(--bernstein); background: #fff; color: #7a3d06; cursor: pointer; }
+.ortswahl .ow-knopf.an { background: var(--bernstein); color: #fff; }
+.ortswahl .ow-info, .ortswahl .ow-status { margin: 10px 2px 0; font: 14px/1.45 Arial, sans-serif; color: #5b4630; }
+.ortswahl .ow-hinweis { margin: 10px 2px 0; font: 700 14px/1.45 Arial, sans-serif; color: #b4560a; }
+/* Sveltias rote Meldung kommt bei eigenen Feldern einen Schritt zu spät (Version 0.255.1) – das Feld zeigt den Hinweis selbst */
+section.field[data-key-path="ortswahl"] .validation { display: none !important; }
+.ortswahl .ow-link { border: 0; background: none; padding: 0; font: inherit; color: #1d3f9a; text-decoration: underline; cursor: pointer; }
