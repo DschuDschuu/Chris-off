@@ -50,6 +50,8 @@ export async function startGlobus(cfg = {}) {
   const routeSegsLL = REISEN.flatMap((r, t) => r.st.slice(1).map((e, i) => [[r.st[i].lon, r.st[i].lat], [e.lon, e.lat], t]));
 
   /* ---------- Fog of War ---------- */
+  // MAXZ: stärkster Zoom (ca. 100 km Ausschnitt), ORT_KM: Ausschnitt beim Klick auf einen Eintrag
+  const MAXZ = 160, ORT_KM = 150;
   const EARTH = 6371, REV_KM = cfg.nebel?.radiusKm ?? 150, HW_KM = cfg.nebel?.routeKm ?? 40, HW = HW_KM / EARTH;
   const FOGC = { hell: [[208, 218, 231], [255, 255, 255]], vintage: [[222, 207, 176], [252, 247, 233]], punkte: [[216, 224, 235], [255, 255, 255]], linien: [[222, 228, 236], [255, 255, 255]] };
   const TW = 384, TH = 192;
@@ -161,7 +163,7 @@ export async function startGlobus(cfg = {}) {
   }
 
   /* ---------- Länder-Statistik (Fog of War pro Land) ---------- */
-  let focusC = null; const CSTAT = {};
+  let focusC = null, ortZoom = false; const CSTAT = {};
   function countryStat(id) {
     if (CSTAT[id]) return CSTAT[id];
     const f = C110.find((x) => String(x.id) === id), b = geoBounds(f); let lo0 = b[0][0], la1 = b[1][1], lo1 = b[1][0]; const la0 = b[0][1]; if (lo1 < lo0) lo1 += 360;
@@ -182,11 +184,16 @@ export async function startGlobus(cfg = {}) {
   }
   const fmtPct = (v) => v.toLocaleString('de-DE', { maximumFractionDigits: v < 10 ? 1 : 0 });
   function baseR() { return w < 760 ? Math.min(w * 0.46, h * 0.33) : Math.min(w * 0.38, h * 0.44); }
+  // Zoomfaktor, bei dem etwa `km` Kilometer auf die kürzere Bildschirmseite passen
+  function zoomFuerKm(km) { return (Math.min(w, h) / 2) * EARTH / (km / 2) / baseR(); }
+  // Klick auf einen Eintrag: nah an den Ort heran (ca. ORT_KM), nicht aufs ganze Land.
+  // Das Land bleibt für die Leiste „x % erkundet“ gemerkt.
   function focusCountry(e) {
-    const f = C110.find((x) => String(x.id) === e.cid); if (!f) { flyTo(e, 1600, false, false, 2.5); return; } focusC = e.cid;
-    const cen = geoCentroid(f), b = geoBounds(f), r = 0.8 * Math.max(...[b[0], b[1], [b[0][0], b[1][1]], [b[1][0], b[0][1]]].map((q) => geoDistance(cen, q)));
-    const z = Math.max(1.5, Math.min(7, (Math.min(w, h) * 0.3) / (baseR() * Math.sin(Math.min(Math.max(r, 0.02), 1.2)))));
-    flyTo({ lon: cen[0] * 0.55 + e.lon * 0.45, lat: cen[1] * 0.55 + e.lat * 0.45 }, 1900, false, true, z); updateCbar();
+    focusC = C110.some((x) => String(x.id) === e.cid) ? e.cid : null; ortZoom = true;
+    const z = Math.max(1.5, Math.min(MAXZ, zoomFuerKm(ORT_KM)));
+    // Am Handy liegt die Postkarte unten: Ort etwas oberhalb der Mitte zeigen
+    const hoch = w <= 640 ? ((h * 0.22) / (baseR() * z)) * (180 / Math.PI) : 0;
+    flyTo({ lon: e.lon, lat: e.lat - hoch }, 1900, false, true, z); updateCbar();
   }
   function updateCbar() {
     const bar = $('#cbar'); if (!bar) return; if (!focusC) { bar.hidden = true; return; }
@@ -318,9 +325,9 @@ export async function startGlobus(cfg = {}) {
     if (modus === 'home') tgt.R *= zoom;
   }
   function layout() { dpr = Math.min(devicePixelRatio || 1, 2); w = innerWidth; h = innerHeight; cv.width = w * dpr; cv.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); setTarget(); if (!cur.R) cur = { ...tgt }; }
-  function setZoom(z) { zoom = Math.max(0.8, Math.min(8, z)); setTarget(); }
+  function setZoom(z) { zoom = Math.max(0.8, Math.min(MAXZ, z)); setTarget(); }
   function flyTo(e, dur = 2400, spin = false, exact = false, toZoom) {
-    const z1 = Math.max(0.8, Math.min(8, toZoom ?? zoom)), off = exact ? 0 : 8 / Math.max(1, z1); const from = rot.slice(), to = [-e.lon, -e.lat + off, 0];
+    const z1 = Math.max(0.8, Math.min(MAXZ, toZoom ?? zoom)), off = exact ? 0 : 8 / Math.max(1, z1); const from = rot.slice(), to = [-e.lon, -e.lat + off, 0];
     while (to[0] - from[0] > 180) to[0] -= 360; while (to[0] - from[0] < -180) to[0] += 360; if (spin) to[0] += to[0] >= from[0] ? 360 : -360;
     const dist = geoDistance([-from[0], -from[1]], [-to[0], -to[1]]);
     fly = { from, to, t0: performance.now(), dur: reduce ? 1 : dur, z0: zoom, z1, dip: Math.max(0, Math.min(Math.log(Math.max(zoom, z1)), dist * 1.4)) };
@@ -441,7 +448,7 @@ export async function startGlobus(cfg = {}) {
     if (dragMoved) { dragMoved = false; return; }
     const pi = poemAt(ev.clientX, ev.clientY, 12); if (pi !== null) { const q = poemPos.find((q) => q.i === pi); openLetter(pi, q ? [q.x, q.y] : null); return; }
     const near = pinsNear(ev.clientX, ev.clientY, 24);
-    if (near.length >= 2 && zoom < 7.5) { const c = near.reduce((a, e) => [a[0] + e.lon / near.length, a[1] + e.lat / near.length], [0, 0]); flyTo({ lon: c[0], lat: c[1] }, 1000, false, true, Math.min(8, zoom * 2.4)); toast('Mehrere Orte liegen hier dicht beieinander, herangezoomt.'); return; }
+    if (near.length >= 2 && zoom < MAXZ * 0.9) { const c = near.reduce((a, e) => [a[0] + e.lon / near.length, a[1] + e.lat / near.length], [0, 0]); flyTo({ lon: c[0], lat: c[1] }, 1000, false, true, Math.min(MAXZ, zoom * 2.4)); toast('Mehrere Orte liegen hier dicht beieinander, herangezoomt.'); return; }
     const hit = pinAt(ev.clientX, ev.clientY, 22); if (hit) { select(hit); return; }
     closeCard();
   });
@@ -491,7 +498,7 @@ export async function startGlobus(cfg = {}) {
     pc.hidden = false; pc.classList.add('away'); pc.classList.remove('pop-in'); void pc.offsetWidth; pc.classList.add('pop-in');
     document.querySelectorAll('#entryList button').forEach((b) => b.setAttribute('aria-current', String(b.dataset.id === e.id)));
   }
-  function closeCard(keepView) { cardE = null; pc.hidden = true; if (focusC) { focusC = null; $('#cbar').hidden = true; if (!keepView) flyTo({ lon: -rot[0], lat: -rot[1] }, 1200, false, true, 1); } }
+  function closeCard(keepView) { cardE = null; pc.hidden = true; if (focusC || ortZoom) { focusC = null; ortZoom = false; $('#cbar').hidden = true; if (!keepView) flyTo({ lon: -rot[0], lat: -rot[1] }, 1200, false, true, 1); } }
   $('#pcClose').onclick = () => closeCard();
 
   /* ---------- Gedicht-Brief ---------- */
