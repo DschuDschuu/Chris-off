@@ -180,7 +180,18 @@ export async function startGlobus(cfg = {}) {
   }
   // Feinste Stufe (10m): genaue Küsten, eine Datei pro Land (prepare.mjs → /data/land10/<id>.json).
   // Geladen werden nur die Länder im Bild; bis eine Datei da ist, wird für dieses Land die 50m-Form gezeichnet.
-  const L10 = new Map(); // ID → Feature (null = lädt gerade)
+  const L10 = new Map(); // ID → Feature (null = lädt gerade, false = keine Datei)
+  // Einmal laden, egal wer fragt: das Zeichnen in der Nahansicht oder „% erkundet“ (countryStat, mit Inseln wie Mallorca)
+  const L10P = new Map();
+  function land10Holen(id) {
+    if (!L10P.has(id)) {
+      L10.set(id, null);
+      // Neue Daten: nur den Bild-Cache ungültig machen (baseKey), nicht den Ruhezustand – sonst würde kurz die grobe Karte ohne Inseln erscheinen
+      L10P.set(id, fetch(`/data/land10/${id}.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+        .then((g) => { L10.set(id, g || false); if (g) baseKey = ''; genaueFormDa(id); return g; }));
+    }
+    return L10P.get(id);
+  }
   // Sichtbarer Ausschnitt als Längen-/Breiten-Kasten (Ecken und Kantenmitten zurückgerechnet); null, wenn nicht alles auf der Kugel liegt
   function sichtKasten() {
     const pts = [];
@@ -194,9 +205,7 @@ export async function startGlobus(cfg = {}) {
     for (const f of cullIn(lod50(), center, Rr).features) {
       const id = f.id == null ? null : String(f.id); if (!id || L10.has(id)) continue;
       if (!kastenSchnitt(k, (f.bbox10 ??= geoBounds(f)))) continue; // nur Länder, die den Ausschnitt wirklich schneiden
-      L10.set(id, null);
-      // Neue Daten: nur den Bild-Cache ungültig machen (baseKey), nicht den Ruhezustand – sonst würde kurz die grobe Karte ohne Inseln erscheinen
-      fetch(`/data/land10/${id}.json`).then((r) => (r.ok ? r.json() : null)).then((g) => { if (g) { L10.set(id, g); baseKey = ''; } }).catch(() => {});
+      land10Holen(id);
     }
   }
   // Sichtbare Länder in feinster verfügbarer Form, dazu die besuchten (für die Färbung)
@@ -312,10 +321,14 @@ export async function startGlobus(cfg = {}) {
 
   /* ---------- Länder-Statistik (Fog of War pro Land) ---------- */
   let focusC = null, ortZoom = false; const CSTAT = {};
+  // Fläche und Anteil „erkundet“ eines Landes. Mit der genauen Form (land10, mit allen Inseln – die grobe Karte kennt
+  // z. B. Mallorca nicht, dort erkundete Fläche zählte sonst nicht), solange die noch lädt mit der groben.
+  // Raster 0,04° (ca. 4 km); bei sehr großen Ländern gröber, damit es höchstens ca. 2 Mio. Punkte sind.
   function countryStat(id) {
-    if (CSTAT[id]) return CSTAT[id];
-    const f = C110.find((x) => String(x.id) === id), b = geoBounds(f); let lo0 = b[0][0], la1 = b[1][1], lo1 = b[1][0]; const la0 = b[0][1]; if (lo1 < lo0) lo1 += 360;
-    const st = 0.04, W2 = Math.ceil((lo1 - lo0) / st) + 1, H2 = Math.ceil((la1 - la0) / st) + 1, c = document.createElement('canvas'); c.width = W2; c.height = H2;
+    const genau = L10.get(id) || null;
+    if (CSTAT[id] && (CSTAT[id].genau || !genau)) return CSTAT[id];
+    const f = genau || C110.find((x) => String(x.id) === id), b = geoBounds(f); let lo0 = b[0][0], la1 = b[1][1], lo1 = b[1][0]; const la0 = b[0][1]; if (lo1 < lo0) lo1 += 360;
+    const st = Math.max(0.04, Math.sqrt(((lo1 - lo0) * (la1 - la0)) / 2e6)), W2 = Math.ceil((lo1 - lo0) / st) + 1, H2 = Math.ceil((la1 - la0) / st) + 1, c = document.createElement('canvas'); c.width = W2; c.height = H2;
     const o = c.getContext('2d', { willReadFrequently: true }), k = 180 / (Math.PI * st);
     const pr = geoEquirectangular().scale(k).translate([((-lo0 * Math.PI) / 180) * k, ((la1 * Math.PI) / 180) * k]); o.fillStyle = '#f00'; o.beginPath(); geoPath(pr, o)(f); o.fill();
     const data = o.getImageData(0, 0, W2, H2).data, cosR = Math.cos(REVr), sinH = Math.sin(HW); let tot = 0, exp = 0;
@@ -328,7 +341,12 @@ export async function startGlobus(cfg = {}) {
         if (hit) exp += cl;
       }
     }
-    const cell = ((st * Math.PI) / 180) ** 2 * EARTH * EARTH; return (CSTAT[id] = { pct: tot ? (exp / tot) * 100 : 0, area: exp * cell, total: tot * cell });
+    const cell = ((st * Math.PI) / 180) ** 2 * EARTH * EARTH; return (CSTAT[id] = { pct: tot ? (exp / tot) * 100 : 0, area: exp * cell, total: tot * cell, genau: !!genau });
+  }
+  // Genaue Form angekommen (oder keine vorhanden): Leiste und Länderliste neu rechnen
+  function genaueFormDa(id) {
+    if (id === focusC) updateCbar();
+    const pop = $('#ctyPop'); if (pop && !pop.hidden && VISITED.includes(id)) renderCty();
   }
   const fmtPct = (v) => v.toLocaleString('de-DE', { maximumFractionDigits: v < 10 ? 1 : 0 });
   function baseR() { return w < 760 ? Math.min(w * 0.46, h * 0.33) : Math.min(w * 0.38, h * 0.44); }
@@ -353,6 +371,12 @@ export async function startGlobus(cfg = {}) {
   }
   function updateCbar() {
     const bar = $('#cbar'); if (!bar) return; if (!focusC) { bar.hidden = true; return; }
+    // Erst die genaue Form (mit Inseln) holen, so lange „…“ – sonst spränge die Zahl z. B. von 0 auf 4 %
+    if (!L10.has(focusC) || L10.get(focusC) === null) {
+      land10Holen(focusC);
+      $('#cbName').textContent = CNAME[focusC] || ''; $('#cbPct').textContent = '… % erkundet'; $('#cbFill').style.width = '0'; $('#cbSub').textContent = ''; bar.hidden = false;
+      return;
+    }
     const st = countryStat(focusC), es = ENTRIES.filter((e) => e.cid === focusC), ps = POEMS.filter((p) => p.eintrag && EBY[p.eintrag]?.cid === focusC);
     $('#cbName').textContent = CNAME[focusC] || ''; $('#cbPct').textContent = `${fmtPct(st.pct)} % erkundet`; $('#cbFill').style.width = '0'; bar.hidden = false;
     setTimeout(() => ($('#cbFill').style.width = Math.max(2, st.pct) + '%'), 60);
@@ -683,8 +707,9 @@ export async function startGlobus(cfg = {}) {
     $('#pcTitle').textContent = e.titel; $('#pcMeta').textContent = `${e.ort} · ${e.datum}` + (e.reiseTitel ? ` · Station ${e.nr} von ${e.von}` : ''); $('#pcEx').textContent = e.auszug || ''; $('#pcEx').hidden = !e.auszug; $('#pcPm').textContent = ohneBei(e.ort).toUpperCase();
     $('#pcImgLink').href = e.musik ? e.url + '?musik=1' : e.url; $('#pcHint').textContent = e.musik ? '▶ Mit Musik' : 'Lesen';
     $('#pcActions').innerHTML = (e.musik ? `<a class="pc-btn primary" href="${e.url}?musik=1">▶ Mit Musik lesen</a><a class="pc-btn" href="${e.url}">Lesen</a>` : `<a class="pc-btn primary" href="${e.url}">Eintrag lesen →</a>`) + `<a class="pc-btn" href="${e.url}?vorlesen=1">🔈 Vorlesen</a>`;
-    if (richtung) { const inn = pc.querySelector('.pc-in'); inn.classList.remove('wisch-l', 'wisch-r'); void inn.offsetWidth; inn.classList.add(richtung > 0 ? 'wisch-l' : 'wisch-r'); }
-    else { pc.hidden = false; pc.classList.add('away'); pc.classList.remove('pop-in'); void pc.offsetWidth; pc.classList.add('pop-in'); }
+    // Blättern: die ganze Karte samt Luftpost-Rahmen gleitet herein (CSS wisch-l/-r über „translate“, das „rotate“ bleibt)
+    if (richtung) { pc.classList.remove('pop-in', 'wisch-l', 'wisch-r'); void pc.offsetWidth; pc.classList.add(richtung > 0 ? 'wisch-l' : 'wisch-r'); }
+    else { pc.hidden = false; pc.classList.add('away'); pc.classList.remove('pop-in', 'wisch-l', 'wisch-r'); void pc.offsetWidth; pc.classList.add('pop-in'); }
     document.querySelectorAll('#entryList button').forEach((b) => b.setAttribute('aria-current', String(b.dataset.id === e.id)));
   }
   // Stapel öffnen: alle Einträge (ohne Zuhause), deren Pin höchstens r Pixel von (x, y) entfernt ist
@@ -700,18 +725,20 @@ export async function startGlobus(cfg = {}) {
     flyTo({ lon: e.lon, lat: e.lat - ortVersatz(zoom) }, 700, false, true, zoom);
   }
   $('#pcVor').onclick = () => stapelWechsel(-1); $('#pcNach').onclick = () => stapelWechsel(1);
-  // Wischen auf der Postkarte (wie in der Bildansicht): Karte folgt dem Finger; nach jeder Bewegung über 10 px
-  // wird der folgende Klick verschluckt, damit kein „Lesen“-Link ausgelöst wird
+  // Wischen auf der Postkarte (wie in der Bildansicht): die ganze Karte samt Luftpost-Rahmen folgt dem Finger.
+  // Verschoben wird über „translate“, weil „transform“ schon die leichte Schräglage (rotate) trägt.
+  // Nach jeder Bewegung über 10 px wird der folgende Klick verschluckt, damit kein „Lesen“-Link ausgelöst wird.
   {
-    const inn = pc.querySelector('.pc-in'); let wisch = null, gewischt = false;
-    pc.addEventListener('pointerdown', (ev) => { gewischt = false; if (!kartenStapel || ev.target.closest('button')) return; wisch = { x: ev.clientX, y: ev.clientY, id: ev.pointerId }; inn.style.transition = 'none'; });
-    pc.addEventListener('pointermove', (ev) => { if (!wisch || ev.pointerId !== wisch.id) return; const dx = ev.clientX - wisch.x; if (Math.abs(dx) > Math.abs(ev.clientY - wisch.y)) inn.style.transform = `translateX(${dx}px)`; });
+    let wisch = null, gewischt = false;
+    const zurueck = (weich) => { pc.style.transition = weich ? 'opacity .25s ease, translate .2s ease' : ''; pc.style.translate = ''; };
+    pc.addEventListener('pointerdown', (ev) => { gewischt = false; if (!kartenStapel || ev.target.closest('button')) return; wisch = { x: ev.clientX, y: ev.clientY, id: ev.pointerId }; pc.style.transition = 'opacity .25s ease'; });
+    pc.addEventListener('pointermove', (ev) => { if (!wisch || ev.pointerId !== wisch.id) return; const dx = ev.clientX - wisch.x; if (Math.abs(dx) > Math.abs(ev.clientY - wisch.y)) pc.style.translate = `${dx}px 0`; });
     pc.addEventListener('pointerup', (ev) => {
       if (!wisch || ev.pointerId !== wisch.id) return; const dx = ev.clientX - wisch.x, dy = ev.clientY - wisch.y; wisch = null;
-      gewischt = Math.hypot(dx, dy) > 10; inn.style.transition = 'transform .2s ease'; inn.style.transform = '';
-      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) { inn.style.transition = 'none'; stapelWechsel(dx < 0 ? 1 : -1); }
+      gewischt = Math.hypot(dx, dy) > 10;
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) { zurueck(false); stapelWechsel(dx < 0 ? 1 : -1); } else zurueck(true);
     });
-    pc.addEventListener('pointercancel', () => { wisch = null; inn.style.transform = ''; });
+    pc.addEventListener('pointercancel', () => { wisch = null; zurueck(true); });
     pc.addEventListener('click', (ev) => { if (gewischt) { gewischt = false; ev.preventDefault(); ev.stopPropagation(); } }, true);
   }
 
@@ -722,7 +749,7 @@ export async function startGlobus(cfg = {}) {
     $('#pcEyebrow').textContent = 'Zuhause'; $('#pcTitle').textContent = HOME.ort;
     $('#pcMeta').textContent = `${HOME.land} · ${HEIM.length} ${HEIM.length === 1 ? 'Eintrag' : 'Einträge'} von zuhause`; $('#pcEx').hidden = true; $('#pcPm').textContent = HOME.ort.toUpperCase();
     $('#pcActions').innerHTML = `<ul class="heim-liste">${HEIM.map((e) => `<li><button data-id="${esc(e.id)}"><b>${esc(e.titel)}</b><span class="d">${esc(e.datum)}</span></button></li>`).join('')}</ul>`;
-    pc.hidden = false; pc.classList.add('away'); pc.classList.remove('pop-in'); void pc.offsetWidth; pc.classList.add('pop-in');
+    pc.hidden = false; pc.classList.add('away'); pc.classList.remove('pop-in', 'wisch-l', 'wisch-r'); void pc.offsetWidth; pc.classList.add('pop-in');
     focusC = null; ortZoom = true; $('#cbar').hidden = true;
     const z = Math.max(1.5, Math.min(MAXZ, zoomFuerKm(ORT_KM * 3)));
     flyTo({ lon: HOME.lon, lat: HOME.lat - ortVersatz(z) }, 1600, false, true, z);
@@ -776,8 +803,10 @@ export async function startGlobus(cfg = {}) {
   archiv.addEventListener('click', (ev) => { if (ev.target === archiv) archivZu(); });
   $('#skipList').onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); archivAuf(); };
   function renderCty() {
-    const rows = VISITED.map((id) => ({ id, n: CNAME[id], st: countryStat(id) })).sort((a, b) => b.st.pct - a.st.pct);
-    $('#ctyList').innerHTML = `<li class="sep">Fog of War pro Land</li>` + rows.map((r) => `<li><button class="cty" data-c="${r.id}"><span>${esc(r.n)}</span><span class="cm"><i style="width:${Math.max(2, r.st.pct)}%"></i></span><span class="d">${fmtPct(r.st.pct)} %</span></button></li>`).join('');
+    // genaue Formen nachladen (genaueFormDa rendert dann neu); bis dahin „…“ statt einer Zahl, die gleich springt
+    VISITED.forEach((id) => { if (!L10.has(id)) land10Holen(id); });
+    const rows = VISITED.map((id) => ({ id, n: CNAME[id], st: L10.get(id) === null ? null : countryStat(id) })).sort((a, b) => (b.st ? b.st.pct : -1) - (a.st ? a.st.pct : -1));
+    $('#ctyList').innerHTML = `<li class="sep">Fog of War pro Land</li>` + rows.map((r) => `<li><button class="cty" data-c="${r.id}"><span>${esc(r.n)}</span><span class="cm"><i style="width:${r.st ? Math.max(2, r.st.pct) : 0}%"></i></span><span class="d">${r.st ? fmtPct(r.st.pct) : '…'} %</span></button></li>`).join('');
   }
   $('#ctyList').addEventListener('click', (ev) => { const b = ev.target.closest('[data-c]'); if (!b) return; const e = ENTRIES.find((x) => x.cid === b.dataset.c); $('#ctyPop').hidden = true; if (e) select(e); });
   document.addEventListener('click', (ev) => {
