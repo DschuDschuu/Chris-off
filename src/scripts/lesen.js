@@ -60,6 +60,9 @@ export function startLesen() {
   const marken = [...document.querySelectorAll('.liedwechsel')];
   const box = $('#ytbox'), musikBtn = $('#musikBtn'), ytModal = $('#ytModal');
   let musikAn = false, liedNr = -1;
+  // iPhone/iPad starten Musik mit Ton nur nach einem Tipp direkt im Player (auch bei jedem neuen Lied).
+  // Neuere iPads melden sich als Mac, erkennbar am Touchscreen.
+  const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   function spiele(n) {
     n = Math.max(0, Math.min(LIEDER.length - 1, n)); if (n === liedNr) return; liedNr = n;
     const id = ytId(LIEDER[n].youtube);
@@ -70,6 +73,7 @@ export function startLesen() {
     f.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&playsinline=1`;
     f.title = 'Musik zum Eintrag'; f.allow = 'autoplay; encrypted-media; picture-in-picture'; f.referrerPolicy = 'strict-origin-when-cross-origin';
     $('#ytSlot').replaceChildren(f);
+    $('#ytTipp').hidden = !IOS;
   }
   function aktuellesLied() {
     let n = 0; for (const m of marken) if (m.getBoundingClientRect().top < innerHeight * 0.55) n = Number(m.dataset.lied); return n;
