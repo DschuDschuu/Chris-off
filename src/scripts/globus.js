@@ -737,28 +737,29 @@ export async function startGlobus(cfg = {}) {
     const es = stapelUm(x, y, r);
     if (!es.length) return; kartenStapel = es.length > 1 ? { es, i: 0 } : null; select(es[0]);
   }
-  // Im Stapel blättern: die alte Postkarte fliegt in Wischrichtung hinaus, die neue kommt von der anderen Seite herein
-  // (zusammen ca. 0,4 s; bei „weniger Bewegung“ sofort). Der Globus bleibt dabei stehen – die Einträge liegen höchstens
-  // ein Polaroid auseinander, und ein Flug würde Postkarte, Fotos und Ortsnamen während der Bewegung ausblenden.
-  // Verschoben wird über „translate“, weil „transform“ die Schräglage trägt. vonX: wo der Finger die Karte losgelassen hat.
+  // Im Stapel blättern: die alte Postkarte fliegt in Wischrichtung hinaus, und gleichzeitig kommt die neue von der anderen
+  // Seite herein – im festen Abstand dahinter wie bei einem Karussell (ca. 0,3 s; bei „weniger Bewegung“ sofort). Dafür
+  // wird die alte Karte vorher kopiert (ohne IDs, nicht anklickbar, für Screenreader ausgeblendet); die echte Karte hat
+  // schon den neuen Inhalt. Der Globus bleibt stehen – die Einträge liegen höchstens ein Polaroid auseinander, und ein
+  // Flug würde Postkarte, Fotos und Ortsnamen während der Bewegung ausblenden. Verschoben wird über „translate“, weil
+  // „transform“ die Schräglage trägt. vonX: wo der Finger die Karte losgelassen hat.
   let wechselLaeuft = false;
   function stapelWechsel(d, vonX = 0) {
     const st = kartenStapel; if (!st || wechselLaeuft) return;
     st.i = (st.i + d + st.es.length) % st.es.length; const e = st.es[st.i];
-    const tauschen = () => { active = e; openCard(e, d); };
     pc.style.transition = '';
-    if (reduce || !pc.animate) { pc.style.translate = ''; tauschen(); return; }
+    if (reduce || !pc.animate) { pc.style.translate = ''; active = e; openCard(e, d); return; }
     wechselLaeuft = true;
-    const weit = pc.offsetWidth + 40;
-    const raus = pc.animate([{ translate: `${vonX}px 0`, opacity: 1 }, { translate: `${-d * weit}px 0`, opacity: 0 }], { duration: 170, easing: 'ease-in', fill: 'forwards' });
-    raus.onfinish = () => {
-      pc.style.translate = '';
-      if (kartenStapel !== st) { raus.cancel(); wechselLaeuft = false; return; } // inzwischen geschlossen oder andere Karte
-      tauschen();
-      const rein = pc.animate([{ translate: `${d * weit}px 0`, opacity: 0 }, { translate: '0px 0', opacity: 1 }], { duration: 230, easing: 'ease-out' });
-      raus.cancel(); // im selben Bild wie der Start von „rein“, daher kein Aufblitzen
-      rein.onfinish = rein.oncancel = () => { wechselLaeuft = false; };
-    };
+    const weit = pc.offsetWidth + 40, weg = -d * weit - vonX; // beide Karten wandern um dasselbe Stück → Abstand bleibt
+    const alt = pc.cloneNode(true);
+    alt.removeAttribute('id'); alt.querySelectorAll('[id]').forEach((x) => x.removeAttribute('id'));
+    alt.classList.remove('pop-in', 'away'); alt.setAttribute('aria-hidden', 'true'); alt.inert = true; alt.style.pointerEvents = 'none';
+    pc.before(alt);
+    pc.style.translate = ''; active = e; openCard(e, d);
+    const lauf = { duration: 300, easing: 'cubic-bezier(.4,0,.2,1)' };
+    alt.animate([{ translate: `${vonX}px 0`, opacity: 1 }, { translate: `${vonX + weg}px 0`, opacity: 0 }], { ...lauf, fill: 'forwards' }).onfinish = () => alt.remove();
+    const rein = pc.animate([{ translate: `${vonX + d * weit}px 0`, opacity: 0.3 }, { translate: '0px 0', opacity: 1 }], lauf);
+    rein.onfinish = rein.oncancel = () => { wechselLaeuft = false; alt.remove(); };
   }
   $('#pcVor').onclick = () => stapelWechsel(-1); $('#pcNach').onclick = () => stapelWechsel(1);
   // Wischen auf der Postkarte (wie in der Bildansicht): die ganze Karte samt Luftpost-Rahmen folgt dem Finger.
