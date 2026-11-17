@@ -87,6 +87,14 @@ button[data-label*="Baustein"] {
   background: #fff6c9 !important; color: #2b2a22 !important;
 }
 
+/* Am Handy war der Bearbeitungsbereich 418 statt 390 px breit (Sveltia: min-width auto), rechts wurde alles abgeschnitten */
+.content-area { min-width: 0 !important; }
+/* Sveltia macht das Textfeld unter 768 px so breit wie den Bildschirm (100dvw) und zieht es unten 12 px nach oben:
+   in einem Baustein ragte es rechts heraus (Symbol abgeschnitten) und überdeckte den Hinweis darunter */
+@media (width < 768px) {
+  section.field .sui.text-editor { width: calc(100% + 2 * var(--field-editor-padding, 12px)) !important; margin-bottom: 0 !important; }
+}
+
 /* ---- Eintrag: erst schreiben, dann der Block „Angaben“ ----
    Paare stehen nebeneinander, die Karte ist kleiner; auf schmalen Bildschirmen wieder untereinander. */
 div:has(> section.field[data-key-path="datum"]) { display: flex !important; flex-wrap: wrap !important; column-gap: 0 !important; align-items: stretch; }
@@ -124,6 +132,8 @@ div:has(> section.field[data-key-path="datum"]) > section.field[data-key-path="o
   flex: 1 1 100% !important; background: color-mix(in srgb, var(--feld) 6%, transparent) !important; border-left: 5px solid var(--feld) !important;
   border-radius: 10px !important; padding: 12px 14px !important; margin: 6px 16px !important;
 }
+div:has(> section.field[data-key-path="datum"]) > section.field[data-key-path="ortswahl"]::after { display: none !important; }
+@media (max-width: 600px) { div:has(> section.field[data-key-path="datum"]) > section.field[data-key-path="ortswahl"] { margin: 6px 12px !important; } }
 body.ort-eingeklappt section.field:is([data-key-path="ort"], [data-key-path="land"], [data-key-path="karte"]) { display: none !important; }
 .ortswahl .ow-knoepfe { display: flex; flex-wrap: wrap; gap: 10px; }
 .ortswahl .ow-knopf { font: 700 15px Arial, sans-serif; padding: 11px 18px; border-radius: 999px; border: 2px solid var(--bernstein); background: #fff; color: #7a3d06; cursor: pointer; }
