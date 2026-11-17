@@ -720,16 +720,16 @@ export async function startGlobus(cfg = {}) {
     // andere Postkarte → Stapel vergessen; Karte aus demselben Stapel (z. B. über „Alle Einträge“) → Nummer nachführen
     if (kartenStapel) { const i = kartenStapel.es.indexOf(e); if (i < 0) kartenStapel = null; else kartenStapel.i = i; }
     stapelZeigen();
-    cardE = e; pc.classList.remove('heim'); $('#pcImgLink').hidden = false; document.body.classList.add('karte-offen');
+    // Ohne Foto: kein leeres graues Bildfeld, die Karte zeigt nur Text (wie die Zuhause-Karte)
+    cardE = e; pc.classList.remove('heim'); pc.classList.toggle('ohne-bild', !e.bild); $('#pcImgLink').hidden = !e.bild; document.body.classList.add('karte-offen');
     $('#pcImg').src = e.bild || ''; $('#pcImg').alt = `Titelbild: ${e.ort}`; $('#pcImg').hidden = !e.bild;
     const art = e === ENTRIES[0] ? 'Neuester Eintrag' : vorEinemJahr.includes(e) ? 'Heute vor einem Jahr' : 'Eintrag';
     $('#pcEyebrow').textContent = e.reiseTitel ? (art === 'Eintrag' ? `Reise · ${e.reiseTitel}` : `${art} · Reise ${e.reiseTitel}`) : art;
     $('#pcTitle').textContent = e.titel; $('#pcMeta').textContent = `${e.ort} · ${e.datum}` + (e.reiseTitel ? ` · Station ${e.nr} von ${e.von}` : ''); $('#pcEx').textContent = e.auszug || ''; $('#pcEx').hidden = !e.auszug; $('#pcPm').textContent = ohneBei(e.ort).toUpperCase();
     $('#pcImgLink').href = e.musik ? e.url + '?musik=1' : e.url; $('#pcHint').textContent = e.musik ? '▶ Mit Musik' : 'Lesen';
     $('#pcActions').innerHTML = (e.musik ? `<a class="pc-btn primary" href="${e.url}?musik=1">▶ Mit Musik lesen</a><a class="pc-btn" href="${e.url}">Lesen</a>` : `<a class="pc-btn primary" href="${e.url}">Eintrag lesen →</a>`) + `<a class="pc-btn" href="${e.url}?vorlesen=1">🔈 Vorlesen</a>`;
-    // Blättern: die ganze Karte samt Luftpost-Rahmen gleitet herein (CSS wisch-l/-r über „translate“, das „rotate“ bleibt)
-    if (richtung) { pc.classList.remove('pop-in', 'wisch-l', 'wisch-r'); void pc.offsetWidth; pc.classList.add(richtung > 0 ? 'wisch-l' : 'wisch-r'); }
-    else { pc.hidden = false; pc.classList.add('away'); pc.classList.remove('pop-in', 'wisch-l', 'wisch-r'); void pc.offsetWidth; pc.classList.add('pop-in'); }
+    // Beim Blättern (richtung) nur den Inhalt tauschen – die Bewegung macht stapelWechsel(); sonst aufklappen
+    if (!richtung) { pc.hidden = false; pc.classList.add('away'); pc.classList.remove('pop-in'); void pc.offsetWidth; pc.classList.add('pop-in'); }
     document.querySelectorAll('#entryList button').forEach((b) => b.setAttribute('aria-current', String(b.dataset.id === e.id)));
   }
   // Stapel öffnen: alle Einträge (ohne Zuhause), deren Pin höchstens r Pixel von (x, y) entfernt ist
@@ -737,25 +737,50 @@ export async function startGlobus(cfg = {}) {
     const es = stapelUm(x, y, r);
     if (!es.length) return; kartenStapel = es.length > 1 ? { es, i: 0 } : null; select(es[0]);
   }
-  // Im Stapel blättern: Globus dreht sanft zum Eintrag, der Zoom bleibt
-  function stapelWechsel(d) {
-    const st = kartenStapel; if (!st) return;
-    st.i = (st.i + d + st.es.length) % st.es.length; const e = st.es[st.i]; active = e; openCard(e, d);
-    flyTo({ lon: e.lon, lat: e.lat - ortVersatz(zoom) }, 700, false, true, zoom);
+  // Im Stapel blättern: die alte Postkarte fliegt in Wischrichtung hinaus, und gleichzeitig kommt die neue von der anderen
+  // Seite herein – im festen Abstand dahinter wie bei einem Karussell (ca. 0,3 s; bei „weniger Bewegung“ sofort). Dafür
+  // wird die alte Karte vorher kopiert (ohne IDs, nicht anklickbar, für Screenreader ausgeblendet); die echte Karte hat
+  // schon den neuen Inhalt. Der Globus bleibt stehen – die Einträge liegen höchstens ein Polaroid auseinander, und ein
+  // Flug würde Postkarte, Fotos und Ortsnamen während der Bewegung ausblenden. Verschoben wird über „translate“, weil
+  // „transform“ die Schräglage trägt. vonX: wo der Finger die Karte losgelassen hat.
+  let wechselLaeuft = false;
+  function stapelWechsel(d, vonX = 0) {
+    const st = kartenStapel; if (!st || wechselLaeuft) return;
+    st.i = (st.i + d + st.es.length) % st.es.length; const e = st.es[st.i];
+    pc.style.transition = '';
+    if (reduce || !pc.animate) { pc.style.translate = ''; active = e; openCard(e, d); return; }
+    wechselLaeuft = true;
+    const weit = pc.offsetWidth + 40, weg = -d * weit - vonX; // beide Karten wandern um dasselbe Stück → Abstand bleibt
+    const alt = pc.cloneNode(true);
+    alt.removeAttribute('id'); alt.querySelectorAll('[id]').forEach((x) => x.removeAttribute('id'));
+    alt.classList.remove('pop-in', 'away'); alt.setAttribute('aria-hidden', 'true'); alt.inert = true; alt.style.pointerEvents = 'none';
+    pc.before(alt);
+    pc.style.translate = ''; active = e; openCard(e, d);
+    const lauf = { duration: 300, easing: 'cubic-bezier(.4,0,.2,1)' };
+    alt.animate([{ translate: `${vonX}px 0`, opacity: 1 }, { translate: `${vonX + weg}px 0`, opacity: 0 }], { ...lauf, fill: 'forwards' }).onfinish = () => alt.remove();
+    const rein = pc.animate([{ translate: `${vonX + d * weit}px 0`, opacity: 0.3 }, { translate: '0px 0', opacity: 1 }], lauf);
+    rein.onfinish = rein.oncancel = () => { wechselLaeuft = false; alt.remove(); };
   }
   $('#pcVor').onclick = () => stapelWechsel(-1); $('#pcNach').onclick = () => stapelWechsel(1);
-  // Wischen auf der Postkarte (wie in der Bildansicht): die ganze Karte samt Luftpost-Rahmen folgt dem Finger.
+  // Wischen auf der Postkarte (am Handy, wie in der Bildansicht): die ganze Karte samt Luftpost-Rahmen folgt dem Finger.
   // Verschoben wird über „translate“, weil „transform“ schon die leichte Schräglage (rotate) trägt.
   // Nach jeder Bewegung über 10 px wird der folgende Klick verschluckt, damit kein „Lesen“-Link ausgelöst wird.
   {
     let wisch = null, gewischt = false;
     const zurueck = (weich) => { pc.style.transition = weich ? 'opacity .25s ease, translate .2s ease' : ''; pc.style.translate = ''; };
-    pc.addEventListener('pointerdown', (ev) => { gewischt = false; if (!kartenStapel || ev.target.closest('button')) return; wisch = { x: ev.clientX, y: ev.clientY, id: ev.pointerId }; pc.style.transition = 'opacity .25s ease'; });
-    pc.addEventListener('pointermove', (ev) => { if (!wisch || ev.pointerId !== wisch.id) return; const dx = ev.clientX - wisch.x; if (Math.abs(dx) > Math.abs(ev.clientY - wisch.y)) pc.style.translate = `${dx}px 0`; });
+    // Nur mit Finger oder Stift – am Computer blättert man mit der Maus über die Pfeile ‹ › (Ziehen mit der Maus tut nichts)
+    pc.addEventListener('pointerdown', (ev) => { gewischt = false; if (ev.pointerType === 'mouse' || !kartenStapel || wechselLaeuft || ev.target.closest('button')) return; wisch = { x: ev.clientX, y: ev.clientY, id: ev.pointerId }; pc.style.transition = 'opacity .25s ease'; });
+    // Ab 10 px Bewegung fängt die Karte den Zeiger: dann kommt das Loslassen auch an, wenn Finger oder Maus von der Karte
+    // (oder aus dem Fenster) gerutscht sind – sonst bliebe sie verschoben hängen. Erst ab 10 px, damit Klicks auf Links normal bleiben.
+    pc.addEventListener('pointermove', (ev) => {
+      if (!wisch || ev.pointerId !== wisch.id) return; const dx = ev.clientX - wisch.x;
+      if (!wisch.fang && Math.hypot(dx, ev.clientY - wisch.y) > 10) { wisch.fang = true; try { pc.setPointerCapture(ev.pointerId); } catch (_) {} }
+      if (Math.abs(dx) > Math.abs(ev.clientY - wisch.y)) pc.style.translate = `${dx}px 0`;
+    });
     pc.addEventListener('pointerup', (ev) => {
       if (!wisch || ev.pointerId !== wisch.id) return; const dx = ev.clientX - wisch.x, dy = ev.clientY - wisch.y; wisch = null;
       gewischt = Math.hypot(dx, dy) > 10;
-      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) { zurueck(false); stapelWechsel(dx < 0 ? 1 : -1); } else zurueck(true);
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) stapelWechsel(dx < 0 ? 1 : -1, dx); else zurueck(true);
     });
     pc.addEventListener('pointercancel', () => { wisch = null; zurueck(true); });
     pc.addEventListener('click', (ev) => { if (gewischt) { gewischt = false; ev.preventDefault(); ev.stopPropagation(); } }, true);
@@ -768,7 +793,7 @@ export async function startGlobus(cfg = {}) {
     $('#pcEyebrow').textContent = 'Zuhause'; $('#pcTitle').textContent = HOME.ort;
     $('#pcMeta').textContent = `${HOME.land} · ${HEIM.length} ${HEIM.length === 1 ? 'Eintrag' : 'Einträge'} von zuhause`; $('#pcEx').hidden = true; $('#pcPm').textContent = HOME.ort.toUpperCase();
     $('#pcActions').innerHTML = `<ul class="heim-liste">${HEIM.map((e) => `<li><button data-id="${esc(e.id)}"><b>${esc(e.titel)}</b><span class="d">${esc(e.datum)}</span></button></li>`).join('')}</ul>`;
-    pc.hidden = false; pc.classList.add('away'); pc.classList.remove('pop-in', 'wisch-l', 'wisch-r'); void pc.offsetWidth; pc.classList.add('pop-in');
+    pc.hidden = false; pc.classList.add('away'); pc.classList.remove('pop-in', 'ohne-bild'); void pc.offsetWidth; pc.classList.add('pop-in');
     focusC = null; ortZoom = true; $('#cbar').hidden = true;
     const z = Math.max(1.5, Math.min(MAXZ, zoomFuerKm(ORT_KM * 3)));
     flyTo({ lon: HOME.lon, lat: HOME.lat - ortVersatz(z) }, 1600, false, true, z);
