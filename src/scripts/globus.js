@@ -217,6 +217,8 @@ export async function startGlobus(cfg = {}) {
       ctx.font = '500 11.5px "IBM Plex Mono", monospace'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
       // Pins (und Haus) haben Vorrang: ihre Fläche ist von Anfang an belegt
       const belegt = [];
+      for (const st of fotoStapel) belegt.push(st.box);
+      if (active && !active.zuhause && !cardE) { const [x, y] = proj([active.lon, active.lat]); belegt.push([x - 18 - active.ort.length * 7.6, y - 9, x, y + 9]); } // Schild des aktiven Pins
       for (const e of HOME && HEIM.length ? [...ENTRIES, HOME] : ENTRIES) { if (e.zuhause || geoDistance([e.lon, e.lat], center) > 1.2) continue; const [x, y] = proj([e.lon, e.lat]); belegt.push([x - 12, y - 12, x + 12, y + 12]); }
       for (const o of ORTE) {
         if (o.ew < minEw || geoDistance([o.lon, o.lat], center) > 1.2) continue;
@@ -232,6 +234,49 @@ export async function startGlobus(cfg = {}) {
     }
     const an = gezeigt > 0; if (an !== quelleAn) { quelleAn = an; const q = $('#ortQuelle'); if (q) q.hidden = !an; }
   }
+
+  /* ---------- Fotos auf dem Globus: Polaroids beim nahen Zoom ---------- */
+  // Titelbild über dem Pin; Einträge dicht beieinander werden ein Stapel (neuestes oben, Zahl dran) und fächern
+  // sich beim weiteren Reinzoomen von selbst auf. Zuhause-Einträge nicht (dafür gibt es das Haus mit Liste).
+  const FOTO = new Map();
+  function fotoBild(url) { let i = FOTO.get(url); if (!i) { i = new Image(); i.decoding = 'async'; i.src = url; FOTO.set(url, i); } return i.complete && i.naturalWidth ? i : null; }
+  const neigung = (id) => { let x = 0; for (const c of id) x = (x * 31 + c.charCodeAt(0)) | 0; return ((((x % 15) + 15) % 15) - 7) * (Math.PI / 180); };
+  let fotoStapel = [], fotoSeit = null;
+  function fotoLayout(Rr, center, now) {
+    fotoStapel = [];
+    if (modus === 'home' && Rr > 15 * Math.min(w, h) && !fly) {
+      for (const e of ENTRIES) { // ENTRIES: neueste zuerst → erster einer Gruppe ist der neueste
+        if (!e.bild || e.zuhause || geoDistance([e.lon, e.lat], center) > 1.2) continue;
+        const [x, y] = proj([e.lon, e.lat]); if (x < -60 || x > w + 60 || y < -20 || y > h + 90) continue;
+        // 72 px ≈ ein schräges Polaroid: liegen Pins näher beieinander, würden sich die Fotos überlappen → Stapel
+        const g = fotoStapel.find((st) => Math.hypot(st.x - x, st.y - y) < 72); if (g) g.es.push(e); else fotoStapel.push({ e, es: [e], x, y });
+      }
+      for (const st of fotoStapel) st.box = [st.x - 32, st.y - 78, st.x + 36, st.y - 10];
+    }
+    fotoSeit = fotoStapel.length ? fotoSeit ?? now : null;
+  }
+  function drawFotos(now) {
+    if (!fotoStapel.length) return;
+    const al = Math.min(1, (now - fotoSeit) / 350);
+    for (const st of fotoStapel) {
+      for (let k = Math.min(3, st.es.length) - 1; k >= 0; k--) { // unten die älteren, oben der neueste
+        const e = st.es[k], img = fotoBild(e.bild);
+        ctx.save(); ctx.globalAlpha = al; ctx.translate(st.x + k * 5, st.y - 44 - k * 3); ctx.rotate(neigung(e.id) + k * 0.1);
+        ctx.shadowColor = 'rgba(20,30,50,.28)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 3; ctx.fillStyle = '#fffdf8'; ctx.fillRect(-25, -27, 50, 58);
+        ctx.shadowColor = 'transparent';
+        if (img) { const m = Math.min(img.naturalWidth, img.naturalHeight); ctx.drawImage(img, (img.naturalWidth - m) / 2, (img.naturalHeight - m) / 2, m, m, -21, -23, 42, 42); }
+        else { ctx.fillStyle = '#cdd5e0'; ctx.fillRect(-21, -23, 42, 42); }
+        ctx.restore();
+      }
+      if (st.es.length > 1) {
+        ctx.globalAlpha = al; ctx.beginPath(); ctx.arc(st.x + 28, st.y - 72, 10, 0, 7); ctx.fillStyle = '#1d3f9a'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+        ctx.fillStyle = '#fff'; ctx.font = '600 11px "IBM Plex Mono", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(st.es.length), st.x + 28, st.y - 71.5);
+        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+  const fotoAt = (px, py) => fotoStapel.find((st) => px > st.box[0] && px < st.box[2] && py > st.box[1] && py < st.box[3]) || null;
 
   /* ---------- Länder-Statistik (Fog of War pro Land) ---------- */
   let focusC = null, ortZoom = false; const CSTAT = {};
@@ -466,6 +511,7 @@ export async function startGlobus(cfg = {}) {
     ctx.beginPath(); path(night); ctx.fillStyle = G.night; ctx.fill();
     if (G.shade) { const sh = ctx.createRadialGradient(cx - Rr * 0.4, cy - Rr * 0.45, Rr * 0.2, cx, cy, Rr * 1.02); sh.addColorStop(0, G.shade[0]); sh.addColorStop(0.7, G.shade[1]); sh.addColorStop(1, G.shade[2]); ctx.beginPath(); path({ type: 'Sphere' }); ctx.fillStyle = sh; ctx.fill(); }
     if (G.rim) { ctx.beginPath(); path({ type: 'Sphere' }); ctx.strokeStyle = G.rim; ctx.lineWidth = 1.4; ctx.stroke(); if (gstyle === 'vintage') { ctx.beginPath(); ctx.arc(cx, cy, Rr + 7, 0, 7); ctx.lineWidth = 0.8; ctx.stroke(); } }
+    fotoLayout(Rr, center, now);
     if (modus === 'home') drawOrte(Rr, center);
     drawSteps(now, G, Rr, center);
     if (HOME && HEIM.length && geoDistance([HOME.lon, HOME.lat], center) < 1.5) drawHome(now);
@@ -475,6 +521,7 @@ export async function startGlobus(cfg = {}) {
       ctx.beginPath(); ctx.arc(x, y, isA ? 6 : 4, 0, 7); ctx.fillStyle = isA ? '#ec8a1e' : '#ffffff'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#1c2433'; ctx.stroke();
       if (modus === 'home' && ((e === hoverE && e !== cardE) || (isA && !fly && !cardE))) { ctx.font = '500 12px "IBM Plex Mono", monospace'; ctx.fillStyle = '#1c2433'; const hv = e === hoverE; ctx.textAlign = hv ? 'left' : 'right'; ctx.fillText(e.ort.toUpperCase(), hv ? x + 12 : x - 14, y + 4); ctx.textAlign = 'left'; }
     }
+    drawFotos(now);
     if (modus === 'home') drawPoems(now, Rr, center);
     if (modus === 'home' && cardE && pc && !pc.hidden) {
       const vis = !fly && geoDistance([cardE.lon, cardE.lat], center) < 1.45; pc.classList.toggle('away', !vis);
@@ -542,6 +589,9 @@ export async function startGlobus(cfg = {}) {
     if (homeAt(ev.clientX, ev.clientY, 16)) { openHome(); return; }
     const near = pinsNear(ev.clientX, ev.clientY, 24);
     if (near.length >= 2 && zoom < MAXZ * 0.9) { const c = near.reduce((a, e) => [a[0] + e.lon / near.length, a[1] + e.lat / near.length], [0, 0]); flyTo({ lon: c[0], lat: c[1] }, 1000, false, true, Math.min(MAXZ, zoom * 2.4)); toast('Mehrere Orte liegen hier dicht beieinander, herangezoomt.'); return; }
+    const fs = fotoAt(ev.clientX, ev.clientY);
+    if (fs && fs.es.length > 1) { const c = fs.es.reduce((a, e) => [a[0] + e.lon / fs.es.length, a[1] + e.lat / fs.es.length], [0, 0]); flyTo({ lon: c[0], lat: c[1] }, 1000, false, true, Math.min(MAXZ, zoom * 2.4)); return; }
+    if (fs) { select(fs.e); return; }
     const hit = pinAt(ev.clientX, ev.clientY, 22); if (hit) { select(hit); return; }
     closeCard();
   });
@@ -553,7 +603,7 @@ export async function startGlobus(cfg = {}) {
   });
   cv.addEventListener('pointermove', (ev) => {
     lastMouse = [ev.clientX, ev.clientY];
-    if (!ptrs.has(ev.pointerId)) { hoverPoem = poemAt(ev.clientX, ev.clientY, 12); hoverHome = hoverPoem === null && homeAt(ev.clientX, ev.clientY, 16); const f = hoverPoem === null && !hoverHome ? pinAt(ev.clientX, ev.clientY, 18) : null; hoverE = f; cv.style.cursor = f || hoverHome || hoverPoem !== null ? 'pointer' : ''; return; }
+    if (!ptrs.has(ev.pointerId)) { hoverPoem = poemAt(ev.clientX, ev.clientY, 12); hoverHome = hoverPoem === null && homeAt(ev.clientX, ev.clientY, 16); const ueberFoto = !!fotoAt(ev.clientX, ev.clientY); const f = hoverPoem === null && !hoverHome ? pinAt(ev.clientX, ev.clientY, 18) : null; hoverE = f; cv.style.cursor = f || hoverHome || ueberFoto || hoverPoem !== null ? 'pointer' : ''; return; }
     ptrs.set(ev.pointerId, [ev.clientX, ev.clientY]);
     if (pinch && ptrs.size === 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (d > 0) setZoom((pinch.z * d) / pinch.d); dragMoved = true; return; }
     if (drag) {
