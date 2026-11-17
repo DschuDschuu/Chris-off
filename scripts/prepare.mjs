@@ -8,6 +8,20 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import site from '../site.config.mjs';
+import matter from 'gray-matter';
+
+// Zuhause aus dem Inhalts-Ordner lesen (Editor: Einstellungen → Zuhause). null, wenn nicht vollständig.
+// Karte wie beim Eintrag: GeoJSON-Punkt als Text, erst Länge, dann Breite.
+async function zuhauseLesen() {
+  let d;
+  try { d = matter(await fs.readFile(path.join(contentDir, 'einstellungen/zuhause.md'), 'utf8')).data; } catch { return null; }
+  try {
+    const g = typeof d.karte === 'string' ? JSON.parse(d.karte) : d.karte;
+    const [lon, lat] = g?.type === 'Point' ? g.coordinates : [];
+    if (!d.ort || !d.land || !Number.isFinite(lon) || !Number.isFinite(lat)) return null;
+    return { ort: String(d.ort).trim(), land: String(d.land).trim(), karte: JSON.stringify({ type: 'Point', coordinates: [lon, lat] }) };
+  } catch { return null; }
+}
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const contentDir = path.resolve(root, process.env.CONTENT_DIR || './example-content');
@@ -63,7 +77,19 @@ await fs.writeFile(listeDatei, JSON.stringify(neu));
 // 3. Editor-Konfiguration
 const vorlage = await fs.readFile(path.join(root, 'admin-vorlage/config.yml'), 'utf8');
 await fs.mkdir(path.join(pub, 'admin'), { recursive: true });
-await fs.writeFile(path.join(pub, 'admin/config.yml'), vorlage.replaceAll('__REPO__', site.inhalteRepo).replaceAll('__URL__', site.url));
+// Zuhause (einstellungen/zuhause.md) als Vorgabe für Ort, Land und Karte neuer Einträge.
+// Ohne Zuhause bleiben die Felder leer. JSON-Strings sind gültiges YAML, daher JSON.stringify.
+const heim = await zuhauseLesen();
+await fs.writeFile(
+  path.join(pub, 'admin/config.yml'),
+  vorlage
+    .replaceAll('__REPO__', site.inhalteRepo)
+    .replaceAll('__URL__', site.url)
+    .replaceAll('__ZUHAUSE_ORT__', JSON.stringify(heim?.ort ?? ''))
+    .replaceAll('__ZUHAUSE_LAND__', JSON.stringify(heim?.land ?? ''))
+    .replaceAll('__ZUHAUSE_KARTE__', JSON.stringify(heim?.karte ?? '')),
+);
+console.log(heim ? `Editor: neue Einträge starten mit Zuhause ${heim.ort}` : 'Editor: kein Zuhause angegeben, Ort-Felder starten leer');
 for (const f of ['index.html', 'editor.css', 'vorschau.js']) await fs.copyFile(path.join(root, 'admin-vorlage', f), path.join(pub, 'admin', f));
 
 // Schriften für Editor und Vorschau (dieselben wie auf der Seite, liegen auf dem eigenen Server)

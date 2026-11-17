@@ -53,13 +53,12 @@ collections:
       - { label: Datum, name: datum, widget: datetime, format: 'YYYY-MM-DD', date_format: 'DD.MM.YYYY', time_format: false, default: '{{now}}', hint: 'Steht automatisch auf heute.' }
       # Einträge mit Reise sind Stationen dieser Reise (Reihenfolge nach Datum), ohne Reise einzelne Tagebuch-Einträge.
       - { label: Gehört zur Reise, name: reise, widget: relation, collection: reisen, value_field: '{{slug}}', search_fields: [titel], display_fields: ['{{titel}}'], required: false, hint: 'Leer = einzelner Tagebuch-Eintrag.' }
-      # „Von zuhause“: Ort, Land und Karte kommen aus Einstellungen → Zuhause; auf dem Globus ein gemeinsamer Haus-Pin.
-      # Deshalb sind die drei Felder hier nicht Pflicht – der Bau prüft, dass sie bei allen anderen Einträgen da sind.
-      - { label: 'Von zuhause', name: zuhause, widget: boolean, default: false, required: false, hint: 'Ort, Land und Karte bleiben dann leer – sie kommen aus Einstellungen → Zuhause.' }
-      - { label: Ort, name: ort, widget: string, required: false, hint: 'z. B. Lissabon (leer lassen bei „Von zuhause“)' }
-      - { label: Land, name: land, widget: string, required: false, hint: 'auf Deutsch, z. B. Portugal' }
+      # Ort, Land und Karte starten mit dem Zuhause (Einstellungen → Zuhause); prepare.mjs setzt die __ZUHAUSE_…__-Platzhalter ein.
+      # Einträge nah am Zuhause erscheinen auf dem Globus gemeinsam als Haus-Pin.
+      - { label: Ort, name: ort, widget: string, default: __ZUHAUSE_ORT__, hint: 'z. B. Lissabon. Steht anfangs auf deinem Zuhause – unterwegs einfach ändern.' }
+      - { label: Land, name: land, widget: string, default: __ZUHAUSE_LAND__, hint: 'auf Deutsch, z. B. Portugal' }
       # Karte statt Zahlenfelder. decimals: 2 = ca. 1 km genau, damit z. B. die Unterkunft nicht erkennbar ist.
-      - { label: Ort auf der Karte, name: karte, widget: map, decimals: 2, center: [10, 48], zoom: 4, required: false, hint: 'Suchen, auf die Karte tippen oder Standort nehmen (ca. 1 km genau). Leer lassen bei „Von zuhause“.' }
+      - { label: Ort auf der Karte, name: karte, widget: map, decimals: 2, default: __ZUHAUSE_KARTE__, center: [10, 48], zoom: 4, hint: 'Suchen, auf die Karte tippen oder Standort nehmen (ca. 1 km genau). Steht anfangs auf deinem Zuhause.' }
       - { label: Ortszeit beim Schreiben, name: uhrzeit, widget: string, required: false, hint: 'z. B. 21:40' }
       - { label: Wetter, name: wetter, widget: string, required: false, hint: 'z. B. 19 °C, klarer Himmel' }
       - { label: Titelbild, name: titelbild, widget: image, required: false }
@@ -113,10 +112,10 @@ collections:
         label: Zuhause
         file: einstellungen/zuhause.md
         fields:
-          - { label: Ort, name: ort, widget: string, hint: 'z. B. Leipzig – erscheint auf der Postkarte' }
+          - { label: Ort, name: ort, widget: string, hint: 'z. B. Leipzig. Neue Einträge starten mit diesem Ort; Einträge von hier erscheinen auf dem Globus gemeinsam als Haus.' }
           - { label: Land, name: land, widget: string, hint: 'auf Deutsch, z. B. Deutschland' }
           # ca. 1 km genau wie bei Einträgen (mit Julia so entschieden)
-          - { label: Ort auf der Karte, name: karte, widget: map, decimals: 2, center: [10, 51], zoom: 5, hint: 'ca. 1 km genau. Tipp: lieber die Stadtmitte als die eigene Straße wählen.' }
+          - { label: Ort auf der Karte, name: karte, widget: map, decimals: 2, center: [10, 51], zoom: 5, hint: 'Ort oben in die Suche tippen und auswählen (ca. 1 km genau). Tipp: lieber die Stadtmitte als die eigene Straße. Änderung gilt im Editor ab dem nächsten Bau.' }
       - name: rechtliches
         label: Impressum & Kontakt (derzeit nicht auf der Seite)
         file: einstellungen/rechtliches.md

@@ -41,14 +41,17 @@ export async function zuhause() {
   return { ort: d.ort, land: d.land, breite: d.breite, laenge: d.laenge };
 }
 
-// Alle veröffentlichten Einträge, neueste zuerst. Einträge „Von zuhause“ bekommen hier Ort, Land und Punkt vom Zuhause.
+// Einträge bis zu dieser Entfernung vom Zuhause gelten als „von zuhause“ (ein gemeinsamer Haus-Pin).
+// 2 km, weil Orte auf ca. 1 km gerundet gespeichert werden.
+export const ZUHAUSE_KM = 2;
+export const entfernungKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const r = Math.PI / 180, a = Math.sin(((lat2 - lat1) * r) / 2) ** 2 + Math.cos(lat1 * r) * Math.cos(lat2 * r) * Math.sin(((lon2 - lon1) * r) / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.sqrt(a));
+};
+
 export async function alleEintraege() {
-  const [a, heim] = await Promise.all([getCollection('eintraege', (e) => !e.data.entwurf), zuhause()]);
-  const ohneHeim = a.filter((e) => e.data.zuhause && !heim).map((e) => e.id);
-  if (ohneHeim.length) throw new Error(`„Von zuhause“ angekreuzt, aber im Editor unter Einstellungen → Zuhause fehlt Ort, Land oder Punkt auf der Karte (betrifft: ${ohneHeim.join(', ')}).`);
-  return a
-    .map((e) => (e.data.zuhause && heim ? { ...e, data: { ...e.data, ort: heim.ort, land: heim.land, breite: heim.breite, laenge: heim.laenge } } : e))
-    .sort((x, y) => y.data.datum.getTime() - x.data.datum.getTime());
+  const a = await getCollection('eintraege', (e) => !e.data.entwurf);
+  return a.sort((x, y) => y.data.datum.getTime() - x.data.datum.getTime());
 }
 
 export async function alleGedichte() {
@@ -102,6 +105,7 @@ export async function globusDaten() {
   const E = await alleEintraege();
   const P = await alleGedichte();
   const R = await reisenMitStationen();
+  const heim = await zuhause();
   const eintraege = E.map((e) => ({
     id: e.id,
     reise: stationVon(R, e.id)?.reise.id ?? null,
@@ -114,7 +118,7 @@ export async function globusDaten() {
     iso: e.data.datum.toISOString().slice(0, 10),
     bild: e.data.titelbild || e.data.galerie[0]?.bild || null,
     auszug: auszug(textVon(e), 120),
-    zuhause: e.data.zuhause,
+    zuhause: !!heim && entfernungKm(e.data.breite, e.data.laenge, heim.breite, heim.laenge) < ZUHAUSE_KM,
     musik: e.data.lieder.length > 0 || e.data.inhalt.some((b) => b.type === 'lied' && typeof b.link === 'string' && b.link.trim() !== ''),
     url: `/${e.id}/`,
   }));
@@ -135,8 +139,8 @@ export async function globusDaten() {
   // Reisen: Titel, Zeitraum und die Stationen in Reihenfolge (nur IDs, Rest steht bei den Einträgen)
   const reisen = R.map((r) => ({ id: r.id, titel: r.titel, zeitraum: r.zeitraum, stationen: r.stationen.map((s) => s.id) }));
   // Zuhause nur, wenn es Einträge von dort gibt (sonst kein Haus-Pin)
-  const heim = eintraege.some((e) => e.zuhause) ? await zuhause() : null;
-  return { eintraege, gedichte, reisen, zuhause: heim && { ort: heim.ort, land: heim.land, lat: heim.breite, lon: heim.laenge } };
+  const mitHeim = heim && eintraege.some((e) => e.zuhause);
+  return { eintraege, gedichte, reisen, zuhause: mitHeim ? { ort: heim.ort, land: heim.land, lat: heim.breite, lon: heim.laenge } : null };
 }
 
 // JSON sicher in <script type="application/json"> einbetten
