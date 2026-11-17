@@ -68,7 +68,21 @@
   function Eintrag({ entry, getAsset }) {
     const d = entry.get('data') ? entry.get('data').toJS() : {};
     const bausteine = Array.isArray(d.inhalt) ? d.inhalt : [];
-    const ort = [d.ort, d.land].filter(Boolean).join(', ');
+    const wahl = typeof d.ortswahl === 'string' ? d.ortswahl : '';
+    const punkt = wahl && wahl !== 'zuhause' ? wahl : d.karte; // „Hier bin ich“ hat Vorrang vor der Karte
+    // Fehlende Angaben wie auf der Seite ergänzen (window.tbOrtname aus ortswahl.js, dieselbe Regel wie im Bau)
+    const [auto, setAuto] = CMS.React.useState(null);
+    const p = (() => { try { const g = typeof punkt === 'string' ? JSON.parse(punkt) : punkt; const [lo, la] = (g && g.coordinates) || []; return isFinite(la) && isFinite(lo) ? [la, lo] : null; } catch (_) { return null; } })();
+    const pKey = wahl !== 'zuhause' && p ? p.join(',') : '';
+    CMS.React.useEffect(() => {
+      if (!pKey || !window.tbOrtname) return undefined;
+      let weg = false;
+      window.tbOrtname(p[0], p[1]).then((n) => { if (!weg) setAuto({ key: pKey, ort: n.ort, land: n.land }); }).catch(() => {});
+      return () => { weg = true; };
+    }, [pKey]);
+    const a = auto && auto.key === pKey ? auto : null;
+    const ort = wahl === 'zuhause' ? 'Zuhause'
+      : [d.ort || (a && a.ort), d.land || (a && a.land)].filter(Boolean).join(', ') || (pKey ? 'Ort wird beim Veröffentlichen ergänzt' : '');
     const inhalt = [].concat(markdown(d.body, 'alt'), bausteine.map((b, i) => baustein(b, i, getAsset)));
     return h('div', { className: 'lesen vorschau' },
       h('article', { className: 'sheet art' },
@@ -76,7 +90,7 @@
           h('p', { className: 'eyebrow' }, [datumDE(d.datum), ort].filter(Boolean).join(' · ')),
           d.reise ? h('p', { className: 'reise-zeile' }, '✈ Station einer Reise') : null,
           h('h1', null, d.titel || 'Noch ohne Titel'),
-          koord(d.karte) ? h('p', { className: 'mono' }, koord(d.karte)) : null),
+          koord(punkt) ? h('p', { className: 'mono' }, koord(punkt)) : null),
         d.titelbild ? h('figure', null, h('img', { src: String(getAsset(d.titelbild)), alt: '' })) : null,
         h('div', { className: 'text' }, inhalt.filter(Boolean).length ? inhalt : h('p', { className: 'leer' }, 'Füge links unter „Inhalt“ den ersten Baustein hinzu.')),
         d.persoenliches ? h('section', { className: 'personal' }, h('h2', null, 'Persönliches'), h('p', { className: 'ptext' }, d.persoenliches)) : null,

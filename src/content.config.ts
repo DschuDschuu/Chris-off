@@ -37,9 +37,11 @@ const eintraege = defineCollection({
     .object({
       titel: z.string(),
       datum: z.coerce.date(),
-      ort: z.string(),
-      land: z.string(),
+      // Ort und Land dürfen leer bleiben: alleEintraege() (src/lib/daten.ts) ergänzt sie dann aus dem Punkt
+      ort: z.string().optional().nullable().transform((v) => v?.trim() || ''),
+      land: z.string().optional().nullable().transform((v) => v?.trim() || ''),
       ...ortsFelder,
+      ortswahl: z.string().optional().nullable(), // „Wo bist du?“ im Editor: "zuhause" oder Standort als GeoJSON-Punkt
       reise: z.string().optional().nullable(), // Verweis auf eine Reise (Dateiname/Slug), leer = Tagebuch
       // Baukasten: Text, Zwischenüberschrift, Foto, Fotostreifen, Notizzettel, Lied (siehe src/lib/bausteine.ts)
       inhalt: z.array(z.object({ type: z.string() }).passthrough()).nullable().optional().transform((v) => v ?? []),
@@ -55,13 +57,17 @@ const eintraege = defineCollection({
     })
     // „Ganz persönlich“ wird hier entfernt und ist dadurch beim Bauen nirgends verfügbar.
     // Der Ort wird auf breite/laenge vereinheitlicht, damit Globus und Seiten nur diese Form kennen.
-    .transform(({ ganz_persoenlich, karte, breite, laenge, ...rest }, ctx) => {
-      const punkt = ortLesen({ karte, breite, laenge });
+    // „Wo bist du?“ hat Vorrang: "zuhause" → Punkt setzt alleEintraege() (src/lib/daten.ts) vom Zuhause ein; Standort → dieser Punkt.
+    .transform(({ ganz_persoenlich, karte, breite, laenge, ortswahl, ...rest }, ctx) => {
+      const wahl = ortswahl?.trim() || '';
+      // Zuhause: Ort und Land immer aus den Einstellungen (die Felder sind dann im Editor eingeklappt, alte Eingaben zählen nicht)
+    if (wahl === 'zuhause') return { ...rest, ort: '', land: '', zuhauseGewaehlt: true, breite: 0, laenge: 0 };
+      const punkt = (wahl && ortLesen({ karte: wahl })) || ortLesen({ karte, breite, laenge });
       if (!punkt) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Ort fehlt: im Editor bei „Ort auf der Karte“ einen Punkt setzen.' });
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Ort fehlt: im Editor bei „Wo bist du?“ Zuhause oder „Hier bin ich“ antippen oder einen Punkt auf der Karte setzen.' });
         return z.NEVER;
       }
-      return { ...rest, breite: punkt[0], laenge: punkt[1] };
+      return { ...rest, zuhauseGewaehlt: false, breite: punkt[0], laenge: punkt[1] };
     }),
 });
 

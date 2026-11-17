@@ -1,7 +1,7 @@
 ---
 import { render } from 'astro:content';
 import Base from '../layouts/Base.astro';
-import { alleEintraege, reisenMitStationen, stationVon, datumDE, koord, auszug, lesezeit, textVon } from '../lib/daten';
+import { alleEintraege, reisenMitStationen, stationVon, datumDE, koord, auszug, lesezeit, textVon, istBei, ohneBei } from '../lib/daten';
 import { bausteineHtml } from '../lib/bausteine';
 
 export async function getStaticPaths() {
@@ -71,7 +71,7 @@ const minuten = lesezeit(textVon(e));
 
       {d.vorlesen && (
         <div class="vorlesebar" id="vorlesebar" hidden>
-          <span class="mono">🔈 Von {d.ort} vorgelesen</span>
+          <span class="mono">🔈 {istBei(d.ort) ? `Bei ${ohneBei(d.ort)}` : `Von ${d.ort}`} vorgelesen</span>
           <audio id="vorleseAudio" controls preload="none" src={d.vorlesen}></audio>
         </div>
       )}

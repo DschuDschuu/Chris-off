@@ -420,3 +420,15 @@ body.start .toast{top:auto;bottom:calc(128px + env(safe-area-inset-bottom,0px))}
    nur in der Weltansicht sichtbar. visibility statt nur Durchsichtigkeit, damit sie auch nicht antippbar sind. */
 .topr{transition:opacity .3s ease,visibility .3s}
 body.nah .topr{opacity:0;visibility:hidden;position:absolute;right:max(16px, env(safe-area-inset-right,0px))} /* aus dem Fluss, damit der Titel die ganze Breite bekommt */
+
+/* Stapel auf der Postkarte: „‹ 1 / 4 ›“, Wischen blättert (globus.js) */
+.pc-stapel{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:14px;font-family:var(--f-mono);font-size:12px;color:#16295e}
+.pc-stapel button{width:32px;height:32px;border-radius:50%;border:1.5px solid #1d3f9a;background:#fff;color:#1d3f9a;font-size:19px;line-height:1;padding:0 0 2px}
+.pc-stapel button:hover{background:#1d3f9a;color:#fff}
+.postcard.stapel{touch-action:pan-y}
+.postcard a,.postcard img{-webkit-user-drag:none}
+@keyframes pcWischL{from{transform:translateX(44px);opacity:0}to{transform:none;opacity:1}}
+@keyframes pcWischR{from{transform:translateX(-44px);opacity:0}to{transform:none;opacity:1}}
+.pc-in.wisch-l{animation:pcWischL .25s ease}
+.pc-in.wisch-r{animation:pcWischR .25s ease}
+@media (prefers-reduced-motion:reduce){.pc-in.wisch-l,.pc-in.wisch-r{animation:none}}
