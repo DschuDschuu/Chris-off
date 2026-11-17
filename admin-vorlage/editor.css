@@ -135,12 +135,14 @@ div:has(> section.field[data-key-path="datum"]) > section.field[data-key-path="o
 div:has(> section.field[data-key-path="datum"]) > section.field[data-key-path="ortswahl"]::after { display: none !important; }
 @media (max-width: 600px) { div:has(> section.field[data-key-path="datum"]) > section.field[data-key-path="ortswahl"] { margin: 6px 12px !important; } }
 body.ort-eingeklappt section.field:is([data-key-path="ort"], [data-key-path="land"], [data-key-path="karte"]) { display: none !important; }
-/* „Namen selbst schreiben“: Ort und Land wieder zeigen, die Karte bleibt eingeklappt (der Punkt kommt vom Standort) */
+/* „Namen ändern“: Ort und Land wieder zeigen, die Karte bleibt eingeklappt (der Punkt kommt vom Standort) */
 body.ort-eingeklappt.ort-name-offen section.field:is([data-key-path="ort"], [data-key-path="land"]) { display: block !important; }
 .ortswahl .ow-knoepfe { display: flex; flex-wrap: wrap; gap: 10px; }
 .ortswahl .ow-knopf { font: 700 15px Arial, sans-serif; padding: 11px 18px; border-radius: 999px; border: 2px solid var(--bernstein); background: #fff; color: #7a3d06; cursor: pointer; }
 .ortswahl .ow-knopf.an { background: var(--bernstein); color: #fff; }
 .ortswahl .ow-info, .ortswahl .ow-status { margin: 10px 2px 0; font: 14px/1.45 Arial, sans-serif; color: #5b4630; }
+.ortswahl .ow-info p { margin: 0 0 3px; }
+.ortswahl .ow-info strong { color: #7a3d06; }
 .ortswahl .ow-hinweis { margin: 10px 2px 0; font: 700 14px/1.45 Arial, sans-serif; color: #b4560a; }
 /* Sveltias rote Meldung kommt bei eigenen Feldern einen Schritt zu spät (Version 0.255.1) – das Feld zeigt den Hinweis selbst */
 section.field[data-key-path="ortswahl"] .validation { display: none !important; }

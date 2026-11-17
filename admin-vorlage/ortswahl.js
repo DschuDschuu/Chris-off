@@ -1,8 +1,9 @@
 // Feld „Wo bist du?“ im Editor (Sveltia 0.255.1, eigener Feldtyp „ortswahl“): zwei Knöpfe statt Ort, Land und Karte.
 // Gespeicherter Wert: "zuhause" | Standort als GeoJSON-Punkt (Text, 2 Nachkommastellen ≈ 1 km) | "" (selbst wählen).
 // Ist etwas gewählt, klappen Ort, Land und Karte ein (Klasse „ort-eingeklappt“ am <body>, siehe editor.css).
-// Beim Standort kann Christoph über „Namen selbst schreiben“ Ort und Land wieder aufklappen (Klasse „ort-name-offen“),
-// der Punkt bleibt dabei. Leer gelassen ergänzt der Bau den Namen (ggf. „bei Portocolom“).
+// Das Feld zeigt, welcher Name auf der Seite stehen wird („Auf der Seite steht: bei Portocolom, Spanien“) – mit derselben
+// Regel wie der Bau (/admin/ortname.js) und den Ortskacheln der Gegend (/admin/orte/, beides von prepare.mjs).
+// Beim Standort klappt „Namen ändern“ Ort und Land wieder auf (Klasse „ort-name-offen“), der Punkt bleibt dabei.
 // Ort und Land ergänzt der Bau (alleEintraege() in src/lib/daten.ts), den Punkt fürs Zuhause ebenso.
 // Ohne Wahl und ohne Punkt auf der Karte lässt der Editor nicht speichern (isValid).
 (function () {
@@ -18,6 +19,35 @@
       const [lon, lat] = (g && g.coordinates) || [];
       return Number.isFinite(lat) && Number.isFinite(lon) ? [lat, lon] : null;
     } catch (_) { return null; }
+  };
+
+  // Ortsname wie auf der Seite. Auch für die Vorschau rechts (vorschau.js), deshalb an window.
+  // Kacheln ohne Orte gibt es nicht (404 = keine Orte, z. B. auf dem Meer); bei Netzfehlern kein Name statt eines falschen.
+  const kacheln = new Map(), namen = new Map();
+  let regel = null, laender = null;
+  const kachel = (k) => {
+    if (!kacheln.has(k)) {
+      kacheln.set(k, fetch('/admin/orte/' + k + '.json')
+        .then((r) => (r.ok ? r.json() : r.status === 404 ? [] : Promise.reject(new Error('Ortskachel ' + r.status))))
+        .catch((e) => { kacheln.delete(k); throw e; }));
+    }
+    return kacheln.get(k);
+  };
+  window.tbOrtname = (lat, lon) => {
+    const key = lat + ',' + lon;
+    if (!namen.has(key)) {
+      namen.set(key, (async () => {
+        regel = regel || import('/admin/ortname.js');
+        laender = laender || fetch('/admin/laender.json').then((r) => (r.ok ? r.json() : Promise.reject(new Error('Ländernamen ' + r.status))));
+        const [r, namenLand] = await Promise.all([regel, laender]);
+        const listen = await Promise.all(r.kachelnUm(lat, lon).map(kachel));
+        const orte = [].concat(...listen).map(([name, lo, la, ew, land]) => ({ name, lon: lo, lat: la, ew, land }));
+        const { ort, code } = r.ortWaehlen(orte, lat, lon);
+        // „Unterwegs“ (über 50 km zum nächsten Ort): der Editor kennt nur die Gegend, das Land ergänzt dann erst der Bau
+        return { ort, land: (code && namenLand[code]) || '' };
+      })().catch((e) => { namen.delete(key); regel = null; laender = null; throw e; }));
+    }
+    return namen.get(key);
   };
 
   const Ortswahl = R.forwardRef(function Ortswahl({ value, onChange, entry, forID }, ref) {
@@ -48,10 +78,27 @@
       },
     }), [entry]);
 
-    const punktAufKarte = !!(entry && punktAus(entry.getIn(['data', 'karte'])));
-
-    // „Namen selbst schreiben“: offen, wenn angetippt oder wenn Ort/Land schon etwas enthalten (sonst wäre es versteckt)
+    const kartePunkt = entry ? punktAus(entry.getIn(['data', 'karte'])) : null;
+    const punktAufKarte = !!kartePunkt;
     const feld = (k) => String((entry && entry.getIn(['data', k])) || '').trim();
+
+    // Welcher Name steht auf der Seite? Für den Standort oder den Punkt auf der Karte (Zuhause: aus den Einstellungen).
+    // Eigene Eingaben bei Ort/Land haben Vorrang, wie im Bau.
+    const p = zuhause ? null : punktAus(wert) || kartePunkt;
+    const pKey = p ? p.join(',') : '';
+    const [auto, setAuto] = R.useState(null);
+    R.useEffect(() => {
+      if (!pKey) return undefined;
+      let weg = false;
+      window.tbOrtname(p[0], p[1]).then((n) => { if (!weg) setAuto({ key: pKey, ort: n.ort, land: n.land }); }).catch(() => {});
+      return () => { weg = true; };
+    }, [pKey]);
+    const autoJetzt = auto && auto.key === pKey ? auto : null;
+    const anzeige = !autoJetzt ? '' : [feld('ort') || autoJetzt.ort, feld('land') || autoJetzt.land].filter(Boolean).join(', ')
+      + (!feld('land') && !autoJetzt.land ? ' (das Land ergänzt der Bau)' : '');
+    const aufDerSeite = () => ['Auf der Seite steht: ', h('strong', { key: 'n' }, anzeige)];
+
+    // „Namen ändern“: offen, wenn angetippt oder wenn Ort/Land schon etwas enthalten (sonst wäre es versteckt)
     const [nameOffen, setNameOffen] = R.useState(false);
     const nameZeigen = standort && (nameOffen || !!feld('ort') || !!feld('land'));
     R.useEffect(() => {
@@ -81,14 +128,15 @@
       h('div', { className: 'ow-knoepfe' },
         h('button', { type: 'button', className: 'ow-knopf' + (zuhause ? ' an' : ''), 'aria-pressed': zuhause, onClick: () => { setStatus(''); setze('zuhause'); } }, '🏠 Zuhause'),
         h('button', { type: 'button', className: 'ow-knopf' + (standort ? ' an' : ''), 'aria-pressed': standort, onClick: hierBinIch }, '📍 Hier bin ich')),
-      (zuhause || standort) && h('p', { className: 'ow-info' },
-        zuhause ? '✓ Zuhause – Ort und Land kommen aus den Einstellungen.'
-          : nameZeigen ? '✓ Standort übernommen (ca. 1 km genau). Den Namen schreibst du unten – was leer bleibt, wird ergänzt.'
-            : '✓ Standort übernommen (ca. 1 km genau). Ort und Land werden beim Veröffentlichen ergänzt.',
-        ' ',
-        standort && !nameZeigen && h('button', { type: 'button', className: 'ow-link', onClick: nameSchreiben }, 'Namen selbst schreiben'),
-        standort && !nameZeigen && ' · ',
-        h('button', { type: 'button', className: 'ow-link', onClick: () => { setNameOffen(false); setze(''); } }, 'Ort selbst wählen')),
+      (zuhause || standort) && h('div', { className: 'ow-info' },
+        h('p', null, zuhause ? '✓ Zuhause – Ort und Land kommen aus den Einstellungen.' : '✓ Standort übernommen (ca. 1 km genau).'),
+        standort && h('p', null, anzeige ? aufDerSeite()
+          : nameZeigen ? 'Was bei Ort und Land leer bleibt, wird ergänzt.' : 'Ort und Land werden beim Veröffentlichen ergänzt.'),
+        h('p', null,
+          standort && !nameZeigen && h('button', { type: 'button', className: 'ow-link', onClick: nameSchreiben }, 'Namen ändern'),
+          standort && !nameZeigen && ' · ',
+          h('button', { type: 'button', className: 'ow-link', onClick: () => { setNameOffen(false); setze(''); } }, 'Ort selbst wählen'))),
+      !zuhause && !standort && punktAufKarte && anzeige && h('div', { className: 'ow-info' }, h('p', null, aufDerSeite())),
       status && h('p', { className: 'ow-status' }, status),
       !zuhause && !standort && !punktAufKarte && !status && h('p', { className: 'ow-hinweis', role: 'note' }, 'Bitte wählen – oder unten einen Punkt auf der Karte setzen. Ohne Ort lässt sich nicht speichern.'));
   });

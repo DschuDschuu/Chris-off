@@ -1,6 +1,7 @@
 import { getCollection, getEntry } from 'astro:content';
 import { createRequire } from 'node:module';
 import { orteLesen } from '../../scripts/orte.mjs';
+import { entfernungKm, ortWaehlen } from '../../scripts/ortname.mjs';
 import { bausteinText, type Baustein } from './bausteine';
 
 export const datumDE = (d: Date) =>
@@ -46,33 +47,18 @@ export async function zuhause() {
 // Einträge bis zu dieser Entfernung vom Zuhause gelten als „von zuhause“ (ein gemeinsamer Haus-Pin).
 // 2 km, weil Orte auf ca. 1 km gerundet gespeichert werden.
 export const ZUHAUSE_KM = 2;
-export const entfernungKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-  const r = Math.PI / 180, a = Math.sin(((lat2 - lat1) * r) / 2) ** 2 + Math.cos(lat1 * r) * Math.cos(lat2 * r) * Math.sin(((lon2 - lon1) * r) / 2) ** 2;
-  return 2 * 6371 * Math.asin(Math.sqrt(a));
-};
+export { entfernungKm }; // aus scripts/ortname.mjs (gleiche Rechnung wie im Editor)
 
 // Ort und Land aus dem Punkt ableiten, wenn Christoph die Felder leer lässt (z. B. nach „Hier bin ich“).
-// Ort: größter Ort bis 8 km, sonst nächster bis 50 km (GeoNames über all-the-cities, Orte ab ca. 1.000 Einwohnern –
-// kleine Orte und Strände fehlen, dann kommt der Nachbarort). Land: deutscher Name aus dem Ländercode. Läuft nur beim Bau.
-// Liegt der Punkt außerhalb dieses Orts, heißt es „bei Portocolom“ (er war am Strand, nicht im Ort). Die Größe des Orts
-// wird aus den Einwohnern geschätzt (Kreis mit ca. 3.000 Einwohnern je km², z. B. Lissabon ≈ 7 km, Portocolom < 1 km),
-// dazu 1,5 km Spielraum für die Rundung auf ca. 1 km; mindestens 3 km.
+// Die Regel (größter Ort bis 8 km, sonst nächster; außerhalb „bei …“) steht in scripts/ortname.mjs, weil der Editor
+// dieselbe benutzt, um den Namen schon beim Schreiben anzuzeigen. Land: deutscher Name aus dem Ländercode. Läuft nur beim Bau.
 let ORTE_ALLE: ReturnType<typeof orteLesen> | null = null;
 const LANDNAME = new Intl.DisplayNames(['de'], { type: 'region' });
 export function ortAusPunkt(lat: number, lon: number) {
   ORTE_ALLE ??= orteLesen(createRequire(import.meta.url).resolve('all-the-cities/cities.pbf'));
-  let naechster = null, nd = Infinity, groesster = null;
-  for (const o of ORTE_ALLE) {
-    if (Math.abs(o.lat - lat) > 1) continue;
-    const d = entfernungKm(lat, lon, o.lat, o.lon);
-    if (d < nd) { nd = d; naechster = o; }
-    if (d < 8 && (!groesster || o.ew > groesster.ew)) groesster = o;
-  }
-  const o = groesster || (nd < 50 ? naechster : null), code = (groesster || naechster)?.land;
+  const { ort, code } = ortWaehlen(ORTE_ALLE, lat, lon);
   let land = ''; try { land = code ? LANDNAME.of(code) ?? '' : ''; } catch {}
-  if (!o) return { ort: 'Unterwegs', land };
-  const imOrt = entfernungKm(lat, lon, o.lat, o.lon) <= Math.max(3, Math.sqrt(o.ew / 3000 / Math.PI) + 1.5);
-  return { ort: (imOrt ? '' : 'bei ') + o.name, land };
+  return { ort, land };
 }
 
 // „bei Portocolom“ (aus ortAusPunkt) in Sätzen: Poststempel ohne „bei“, „Luftpost aus der Nähe von …“, „geschrieben bei …“.

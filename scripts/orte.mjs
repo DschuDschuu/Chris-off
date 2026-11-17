@@ -3,6 +3,7 @@
 // Einträge heraus und schreibt sie nach public/data/orte.json – an Besucher geht also nur eine kleine Datei,
 // die nichts verrät, was die Pins nicht ohnehin zeigen. Entwürfe zählen nicht mit.
 import fs from 'node:fs';
+import { entfernungKm as km } from './ortname.mjs';
 
 // GeoNames nennt manche bekannten Städte englisch („Lisbon“, „Munich“). Für die deutsche Seite übersetzt:
 // Schlüssel mit Ländercode, damit z. B. „Syracuse“ in den USA nicht zu „Syrakus“ wird. Bei Bedarf ergänzen.
@@ -45,12 +46,6 @@ export function orteLesen(datei) {
   }
   return orte;
 }
-
-// Entfernung in km zwischen zwei Punkten (Haversine)
-const km = (lat1, lon1, lat2, lon2) => {
-  const r = Math.PI / 180, a = Math.sin(((lat2 - lat1) * r) / 2) ** 2 + Math.cos(lat1 * r) * Math.cos(lat2 * r) * Math.sin(((lon2 - lon1) * r) / 2) ** 2;
-  return 2 * 6371 * Math.asin(Math.sqrt(a));
-};
 
 // Orte bis `radiusKm` um einen der Punkte ([breite, laenge]), größte zuerst, als [name, laenge, breite, einwohner]
 export function orteRundUm(orte, punkte, radiusKm = 40) {

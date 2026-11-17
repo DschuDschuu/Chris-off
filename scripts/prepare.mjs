@@ -118,6 +118,31 @@ await fs.mkdir(path.join(pub, 'admin'), { recursive: true });
 await fs.writeFile(path.join(pub, 'admin/config.yml'), vorlage.replaceAll('__REPO__', site.inhalteRepo).replaceAll('__URL__', site.url));
 for (const f of ['index.html', 'editor.css', 'vorschau.js', 'ortswahl.js']) await fs.copyFile(path.join(root, 'admin-vorlage', f), path.join(pub, 'admin', f));
 
+// Ortsname schon im Editor: dieselbe Regel wie im Bau (scripts/ortname.mjs) und alle Orte als 2°-Kacheln
+// (public/admin/orte/<kachel>.json, je Ort [name, länge, breite, einwohner, ländercode]) plus laender.json.
+// Der Editor lädt davon nur die Gegend um den Punkt. Öffentliche GeoNames-Daten, nichts aus den Inhalten.
+{
+  await fs.copyFile(path.join(root, 'scripts/ortname.mjs'), path.join(pub, 'admin/ortname.js'));
+  const { orteLesen } = await import('./orte.mjs');
+  const { kachelVon } = await import('./ortname.mjs');
+  const kacheln = new Map();
+  for (const o of orteLesen(path.join(root, 'node_modules/all-the-cities/cities.pbf'))) {
+    if (!o.name) continue;
+    const k = kachelVon(o.lat, o.lon);
+    if (!kacheln.has(k)) kacheln.set(k, []);
+    kacheln.get(k).push([o.name, o.lon, o.lat, o.ew, o.land]);
+  }
+  const ziel = path.join(pub, 'admin/orte');
+  await fs.rm(ziel, { recursive: true, force: true });
+  await fs.mkdir(ziel, { recursive: true });
+  await Promise.all([...kacheln].map(([k, liste]) => fs.writeFile(path.join(ziel, k + '.json'), JSON.stringify(liste))));
+  // Ländernamen wie im Bau (Intl in Node), damit der Editor nicht die – manchmal anderen – Namen des Browsers nimmt
+  const LANDNAME = new Intl.DisplayNames(['de'], { type: 'region' }), laender = {};
+  for (const liste of kacheln.values()) for (const o of liste) if (o[4] && !(o[4] in laender)) { try { laender[o[4]] = LANDNAME.of(o[4]) ?? ''; } catch { laender[o[4]] = ''; } }
+  await fs.writeFile(path.join(pub, 'admin/laender.json'), JSON.stringify(laender));
+  console.log(`Editor-Ortskacheln: ${kacheln.size}`);
+}
+
 // Schriften für Editor und Vorschau (dieselben wie auf der Seite, liegen auf dem eigenen Server)
 const SCHRIFTEN = [
   ['gloock', 'gloock-latin-400-normal', 'Gloock', 400, 'normal'],
