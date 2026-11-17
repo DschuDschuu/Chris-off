@@ -383,3 +383,24 @@ body.start .toast{top:auto;bottom:calc(128px + env(safe-area-inset-bottom,0px))}
 .heim-liste b{font-family:var(--f-display);font-weight:400;font-size:17px;line-height:1.2}
 .heim-liste .d{font-family:var(--f-mono);font-size:11px;color:var(--muted);white-space:nowrap}
 .ar-heim{color:#1d3f9a}
+
+/* Handy hochkant: Kopf, Länderleiste und Weltkugel-Knopf schlank, Fußzeile weg solange eine Postkarte offen ist –
+   damit vom Globus zwischen den Leisten etwas zu sehen ist (der Ort wird in diese Lücke gesetzt, ortVersatz() in globus.js) */
+@media (max-width:640px){
+  .top{padding-top:calc(8px + env(safe-area-inset-top,0px));padding-bottom:10px;gap:8px}
+  .brand{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .topr{flex-wrap:nowrap;gap:6px;flex-shrink:0}
+  .nav a{padding:5px 10px;font-size:11.5px}
+  .chip{padding:5px 9px}
+  .tc{top:calc(50px + env(safe-area-inset-top,0px));left:0;right:0;transform:none}
+  .cbar{min-width:0;padding:6px 12px;gap:4px}
+  .cb-top b{font-size:17px}
+  .cb-top span{font-size:12px}
+  .cb-sub{display:none}
+  .zoomctl{top:calc(50px + env(safe-area-inset-top,0px))}
+  .worldbtn{position:fixed;right:10px;top:calc(180px + env(safe-area-inset-top,0px));width:46px;height:46px;padding:0;display:grid;place-items:center;font-size:21px;border-radius:12px}
+  .worldbtn .wb-text{display:none}
+  .dock{transition:bottom .3s ease,opacity .25s ease,transform .25s ease}
+  body.karte-offen .dock{opacity:0;pointer-events:none;transform:translate(-50%,16px)}
+  body.karte-offen .postcard{bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+}

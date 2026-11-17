@@ -32,12 +32,22 @@ export async function startGlobus(cfg = {}) {
   const C110 = feature(TOPO, TOPO.objects.countries).features;
   const proj = geoOrthographic().clipAngle(90).precision(0.4), path = geoPath(proj, ctx), grat = geoGraticule10();
 
-  // Land jedes Eintrags automatisch bestimmen (Punkt im Land, sonst nächstes Land in der Nähe)
+  // Land jedes Eintrags automatisch bestimmen. Die grobe Karte kennt kleine Inseln nicht (z. B. Mallorca), daher:
+  // 1. Punkt liegt im Land  2. sonst Land eines anderen Eintrags mit gleichem Ländernamen (Kanaren → Spanien, nicht Marokko)
+  // 3. sonst Land mit der nächsten Küste/Grenze, bis ca. 450 km (früher: nächster Land-Mittelpunkt – Madrid ist zu weit von Mallorca)
   const cent = new Map(C110.map((c) => [c, geoCentroid(c)]));
+  for (const e of ENTRIES) { const f = C110.find((c) => geoContains(c, [e.lon, e.lat])); e.cid = f ? String(f.id) : null; }
+  const cidNachName = {}; for (const e of ENTRIES) if (e.cid && e.land) cidNachName[e.land.trim().toLowerCase()] ??= e.cid;
   for (const e of ENTRIES) {
-    let f = C110.find((c) => geoContains(c, [e.lon, e.lat]));
-    if (!f) { let bd = 1e9; for (const c of C110) { const d = geoDistance(cent.get(c), [e.lon, e.lat]); if (d < bd) { bd = d; f = c; } } if (bd > 0.08) f = null; }
-    e.cid = f ? String(f.id) : null;
+    if (e.cid) continue;
+    const n = e.land && cidNachName[e.land.trim().toLowerCase()]; if (n) { e.cid = n; continue; }
+    let bd = 0.07, best = null; const pt = [e.lon, e.lat];
+    for (const c of C110) {
+      if (geoDistance(cent.get(c), pt) > 0.6) continue; // weit entfernte Länder gar nicht erst durchgehen
+      const polys = c.geometry.type === 'Polygon' ? [c.geometry.coordinates] : c.geometry.coordinates;
+      for (const poly of polys) for (const ring of poly) for (const q of ring) { const d = geoDistance(q, pt); if (d < bd) { bd = d; best = String(c.id); } }
+    }
+    e.cid = best;
   }
   const VISITED = [...new Set(ENTRIES.map((e) => e.cid).filter(Boolean))];
   const CNAME = {}; ENTRIES.forEach((e) => { if (e.cid && !CNAME[e.cid]) CNAME[e.cid] = e.land; });
@@ -90,16 +100,22 @@ export async function startGlobus(cfg = {}) {
   const fogSm = document.createElement('canvas'), fsx = fogSm.getContext('2d'); let fogImg = null;
   let fogQ = innerWidth < 760 ? 0.75 : 1, fogEma = 5, fogTick = 0;
   function drawFog(now, Rr) {
-    const t0 = performance.now(), S = Math.max(80, Math.min(220, Math.round((Rr * 0.62 * fogQ * (stable < 2 ? 0.55 : 1)) / 10) * 10));
-    if (fogSm.width !== S) { fogSm.width = fogSm.height = S; fogImg = fsx.createImageData(S, S); }
-    else if (fogTick++ & 1 && stable >= 2) { ctx.save(); ctx.imageSmoothingEnabled = true; ctx.drawImage(fogSm, cur.cx - Rr, cur.cy - Rr, 2 * Rr, 2 * Rr); ctx.restore(); return; }
+    // Nur den sichtbaren Teil der Kugel rechnen (Schnitt aus Bildschirm und Kugel). Bei starkem Zoom ist die Kugel
+    // viel größer als der Bildschirm; ein Bild über die ganze Kugel wäre so grob, dass die freien Flächen um die Orte verschwinden.
+    const t0 = performance.now(), cx = cur.cx, cy = cur.cy;
+    const x0 = Math.max(0, cx - Rr), y0 = Math.max(0, cy - Rr), x1 = Math.min(w, cx + Rr), y1 = Math.min(h, cy + Rr), bw = x1 - x0, bh = y1 - y0;
+    if (bw <= 0 || bh <= 0) return;
+    const dichte = 0.31 * fogQ * (stable < 2 ? 0.55 : 1); // Nebel-Pixel pro Bildschirm-Pixel (wie bisher bei ganzer Kugel)
+    const SX = Math.max(60, Math.min(220, Math.round((bw * dichte) / 10) * 10)), SY = Math.max(60, Math.min(220, Math.round((bh * dichte) / 10) * 10));
+    if (fogSm.width !== SX || fogSm.height !== SY) { fogSm.width = SX; fogSm.height = SY; fogImg = fsx.createImageData(SX, SY); }
+    else if (fogTick++ & 1 && stable >= 2) { ctx.save(); ctx.imageSmoothingEnabled = true; ctx.drawImage(fogSm, x0, y0, bw, bh); ctx.restore(); return; }
     const d = fogImg.data, c0 = FOGC[gstyle][0], c1 = FOGC[gstyle][1], t = (now / 1000) * (reduce ? 0.5 : 1);
     const lam = (rot[0] * Math.PI) / 180, ph = (rot[1] * Math.PI) / 180, cl = Math.cos(lam), sl = Math.sin(lam), cp = Math.cos(ph), sp = Math.sin(ph);
     const k2 = TW / (2 * Math.PI), o1 = t * 0.105 * k2, o2 = -t * 0.175 * k2, vo = Math.sin(t * 0.265) * 6, vo1 = Math.sin(t * 0.15 + 1) * 3;
-    for (let j = 0; j < S; j++) {
-      const vy = 1 - ((j + 0.5) / S) * 2;
-      for (let i = 0; i < S; i++) {
-        const ux = ((i + 0.5) / S) * 2 - 1, r2 = ux * ux + vy * vy, k = (j * S + i) * 4;
+    for (let j = 0; j < SY; j++) {
+      const vy = (cy - (y0 + ((j + 0.5) / SY) * bh)) / Rr;
+      for (let i = 0; i < SX; i++) {
+        const ux = (x0 + ((i + 0.5) / SX) * bw - cx) / Rr, r2 = ux * ux + vy * vy, k = (j * SX + i) * 4;
         if (r2 >= 1) { d[k + 3] = 0; continue; }
         const z = Math.sqrt(1 - r2), X1 = z * cp + vy * sp, Z1 = vy * cp - z * sp, px = X1 * cl + ux * sl, py = -X1 * sl + ux * cl, pz = Z1;
         let m = 1;
@@ -117,7 +133,7 @@ export async function startGlobus(cfg = {}) {
       }
     }
     fsx.putImageData(fogImg, 0, 0);
-    ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(fogSm, cur.cx - Rr, cur.cy - Rr, 2 * Rr, 2 * Rr); ctx.restore();
+    ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(fogSm, x0, y0, bw, bh); ctx.restore();
     fogEma = fogEma * 0.9 + (performance.now() - t0) * 0.1; if (fogEma > 9 && fogQ > 0.45) fogQ *= 0.97; else if (fogEma < 4 && fogQ < 1) fogQ = Math.min(1, fogQ * 1.01);
   }
   function exploredArea() {
@@ -192,11 +208,19 @@ export async function startGlobus(cfg = {}) {
   // Klick auf einen Eintrag: nah an den Ort heran (ca. ORT_KM), nicht aufs ganze Land.
   // Das Land bleibt für die Leiste „x % erkundet“ gemerkt.
   function focusCountry(e) {
-    focusC = C110.some((x) => String(x.id) === e.cid) ? e.cid : null; ortZoom = true;
+    focusC = C110.some((x) => String(x.id) === e.cid) ? e.cid : null; ortZoom = true; updateCbar();
     const z = Math.max(1.5, Math.min(MAXZ, zoomFuerKm(ORT_KM)));
-    // Am Handy liegt die Postkarte unten: Ort etwas oberhalb der Mitte zeigen
-    const hoch = w <= 640 ? ((h * 0.22) / (baseR() * z)) * (180 / Math.PI) : 0;
-    flyTo({ lon: e.lon, lat: e.lat - hoch }, 1900, false, true, z); updateCbar();
+    flyTo({ lon: e.lon, lat: e.lat - ortVersatz(z) }, 1900, false, true, z);
+  }
+  // Am Handy decken Leisten oben und die Postkarte unten viel ab: Ort in die Mitte der freien Lücke dazwischen setzen.
+  // Gibt zurück, um wie viele Grad Breite der Blickpunkt dafür nach Süden rücken muss (am Computer 0).
+  // Erst aufrufen, wenn Länderleiste und Postkarte eingeblendet sind, sonst stimmt die Messung nicht.
+  function ortVersatz(z) {
+    if (w > 640) return 0;
+    const unterkante = (el) => (el && !el.hidden ? el.getBoundingClientRect().bottom : 0);
+    const oben = Math.max(unterkante($('.top')), unterkante($('#cbar')));
+    const unten = Math.max(oben + 40, pc && !pc.hidden ? pc.getBoundingClientRect().top : h - 100);
+    return ((tgt.cy - (oben + unten) / 2) / (baseR() * z)) * (180 / Math.PI);
   }
   function updateCbar() {
     const bar = $('#cbar'); if (!bar) return; if (!focusC) { bar.hidden = true; return; }
@@ -502,7 +526,7 @@ export async function startGlobus(cfg = {}) {
   const esc = (s = '') => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   function select(e, spin) { active = e; openCard(e); if (spin) { flyTo(e, 3000, true, false, 1); setTimeout(() => { if (cardE === e) focusCountry(e); }, 3000); } else focusCountry(e); }
   function openCard(e) {
-    cardE = e; pc.classList.remove('heim'); $('#pcImgLink').hidden = false;
+    cardE = e; pc.classList.remove('heim'); $('#pcImgLink').hidden = false; document.body.classList.add('karte-offen');
     $('#pcImg').src = e.bild || ''; $('#pcImg').alt = `Titelbild: ${e.ort}`; $('#pcImg').hidden = !e.bild;
     const art = e === ENTRIES[0] ? 'Neuester Eintrag' : vorEinemJahr.includes(e) ? 'Heute vor einem Jahr' : 'Eintrag';
     $('#pcEyebrow').textContent = e.reiseTitel ? (art === 'Eintrag' ? `Reise · ${e.reiseTitel}` : `${art} · Reise ${e.reiseTitel}`) : art;
@@ -514,16 +538,17 @@ export async function startGlobus(cfg = {}) {
   }
   // Zuhause-Karte: dieselbe Postkarte, aber ohne Bild und mit der Liste der Einträge von zuhause (neueste zuerst)
   function openHome() {
-    active = null; cardE = { heim: true, lon: HOME.lon, lat: HOME.lat }; pc.classList.add('heim'); $('#pcImgLink').hidden = true;
+    active = null; cardE = { heim: true, lon: HOME.lon, lat: HOME.lat }; pc.classList.add('heim'); $('#pcImgLink').hidden = true; document.body.classList.add('karte-offen');
     $('#pcEyebrow').textContent = 'Zuhause'; $('#pcTitle').textContent = HOME.ort;
     $('#pcMeta').textContent = `${HOME.land} · ${HEIM.length} ${HEIM.length === 1 ? 'Eintrag' : 'Einträge'} von zuhause`; $('#pcEx').hidden = true; $('#pcPm').textContent = HOME.ort.toUpperCase();
     $('#pcActions').innerHTML = `<ul class="heim-liste">${HEIM.map((e) => `<li><button data-id="${esc(e.id)}"><b>${esc(e.titel)}</b><span class="d">${esc(e.datum)}</span></button></li>`).join('')}</ul>`;
     pc.hidden = false; pc.classList.add('away'); pc.classList.remove('pop-in'); void pc.offsetWidth; pc.classList.add('pop-in');
     focusC = null; ortZoom = true; $('#cbar').hidden = true;
-    flyTo(HOME, 1600, false, true, Math.max(1.5, Math.min(MAXZ, zoomFuerKm(ORT_KM * 3))));
+    const z = Math.max(1.5, Math.min(MAXZ, zoomFuerKm(ORT_KM * 3)));
+    flyTo({ lon: HOME.lon, lat: HOME.lat - ortVersatz(z) }, 1600, false, true, z);
   }
   $('#pcActions').addEventListener('click', (ev) => { const b = ev.target.closest('.heim-liste button'); if (b) select(EBY[b.dataset.id]); });
-  function closeCard(keepView) { cardE = null; pc.hidden = true; if (focusC || ortZoom) { focusC = null; ortZoom = false; $('#cbar').hidden = true; if (!keepView) flyTo({ lon: -rot[0], lat: -rot[1] }, 1200, false, true, 1); } }
+  function closeCard(keepView) { cardE = null; pc.hidden = true; document.body.classList.remove('karte-offen'); if (focusC || ortZoom) { focusC = null; ortZoom = false; $('#cbar').hidden = true; if (!keepView) flyTo({ lon: -rot[0], lat: -rot[1] }, 1200, false, true, 1); } }
   $('#pcClose').onclick = () => closeCard();
 
   /* ---------- Gedicht-Brief ---------- */
