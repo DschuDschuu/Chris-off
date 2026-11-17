@@ -415,3 +415,8 @@ body.start .toast{top:auto;bottom:calc(128px + env(safe-area-inset-bottom,0px))}
 }
 /* Fußzeile bis 900 px Breite etwas höher, damit unten rechts Platz für die Quellenangabe bleibt */
 @media (max-width:900px){.dock{bottom:calc(22px + env(safe-area-inset-bottom,0px))}}
+
+/* Nahansicht (body.nah, gesetzt in globus.js wie die ausgeblendete Statistik): Tagebuch/Gedichte und RSS weg,
+   nur in der Weltansicht sichtbar. visibility statt nur Durchsichtigkeit, damit sie auch nicht antippbar sind. */
+.topr{transition:opacity .3s ease,visibility .3s}
+body.nah .topr{opacity:0;visibility:hidden;position:absolute;right:max(16px, env(safe-area-inset-right,0px))} /* aus dem Fluss, damit der Titel die ganze Breite bekommt */

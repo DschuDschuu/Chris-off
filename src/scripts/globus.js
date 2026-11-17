@@ -239,6 +239,8 @@ export async function startGlobus(cfg = {}) {
       // Pins (und Haus) haben Vorrang: ihre Fläche ist von Anfang an belegt
       const belegt = [];
       for (const st of fotoStapel) belegt.push(st.box);
+      // Knöpfe und Leisten über der Leinwand: Namen sollen nicht darunter verschwinden
+      for (const s of ['.zoomctl', '#worldBtn', '#cbar', '.top .brand', '#postcard']) { const el = $(s); if (el && !el.hidden) { const q = el.getBoundingClientRect(); if (q.width) belegt.push([q.left - 4, q.top - 4, q.right + 4, q.bottom + 4]); } }
       if (active && !active.zuhause && !cardE) { const [x, y] = proj([active.lon, active.lat]); belegt.push([x - 18 - active.ort.length * 7.6, y - 9, x, y + 9]); } // Schild des aktiven Pins
       for (const e of HOME && HEIM.length ? [...ENTRIES, HOME] : ENTRIES) { if (e.zuhause || geoDistance([e.lon, e.lat], center) > 1.2) continue; const [x, y] = proj([e.lon, e.lat]); belegt.push([x - 12, y - 12, x + 12, y + 12]); }
       for (const o of ORTE) {
@@ -511,7 +513,7 @@ export async function startGlobus(cfg = {}) {
     else if (!drag && Math.abs(vel[0]) + Math.abs(vel[1]) > 0.004) { rot[0] += vel[0]; rot[1] = Math.max(-85, Math.min(85, rot[1] + vel[1])); vel[0] *= 0.93; vel[1] *= 0.93; }
     if (modus === 'home') {
       const zb = zoom > 1.25 && !fly; if (zb !== worldShown) { worldShown = zb; $('#worldBtn').hidden = !zb; }
-      const zs = zoom > 1.25 || !!focusC; if (zs !== statsHidden) { statsHidden = zs; $('#stats').classList.toggle('zoomed', zs); if (zs) $('#ctyPop').hidden = true; }
+      const zs = zoom > 1.25 || !!focusC; if (zs !== statsHidden) { statsHidden = zs; $('#stats').classList.toggle('zoomed', zs); document.body.classList.toggle('nah', zs); if (zs) $('#ctyPop').hidden = true; }
     }
     ctx.clearRect(0, 0, w, h);
     const { R: Rr, cx, cy } = cur; proj.scale(Rr).translate([cx, cy]).rotate(rot);

@@ -59,7 +59,7 @@ CONTENT_DIR=../tagebuch-inhalte npm run dev   # mit echten Inhalten
 - Baukasten (mit Julia festgelegt): Text, Zwischenüberschrift, Foto, Fotostreifen (2–3), Notizzettel (Caveat auf gelbem Zettel mit Klebestreifen), Lied (Fußspuren über jedem Liedwechsel). Abstecher und O-Ton bewusst weggelassen, können später dazu. Im Editor ist jeder Baustein-Typ farbig, die Vorschau rechts zeigt den Briefbogen ohne Feld-Kästen. Initiale nur, wo Christoph sie per Häkchen will (nicht automatisch am Textanfang).
 - Gedichte: an der Küste Flaschenpost (erst beim Hineinzoomen sichtbar), sonst Papierflieger im Orbit. Klick faltet einen Luftpost-Brief auf. Keine Federn.
 - Klick auf Ort: Zoom auf den Ort (ca. 150 km) + Leiste „x % erkundet“ fürs Land. Button „Ganze Weltkugel zeigen“ beim Zoomen (am Handy als 🌍 bei +/−). Am Handy: Kopf einzeilig, Länderleiste ohne Detailzeile, Fußzeile weg solange eine Postkarte offen ist.
-- Statistik-Leiste nur in der Weltansicht. „Alle Einträge“ listet nur Texte, keine Gedichte.
+- Statistik-Leiste, Tagebuch/Gedichte-Schalter und RSS-Knopf nur in der Weltansicht (beim Zoomen `body.nah`, Titel bekommt dann die volle Breite). „Alle Einträge“ listet nur Texte, keine Gedichte.
 - Musik über YouTube (kein Spotify), keine Leser-Accounts. Easter Egg wurde bewusst komplett entfernt – nicht wieder einbauen.
 - Übergänge sollen ruckelfrei sein (Basis-Layer-Cache, 50m-Karte erst im Stillstand, Fog adaptiv).
 
