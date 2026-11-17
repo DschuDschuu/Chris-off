@@ -762,13 +762,14 @@ export async function startGlobus(cfg = {}) {
     rein.onfinish = rein.oncancel = () => { wechselLaeuft = false; alt.remove(); };
   }
   $('#pcVor').onclick = () => stapelWechsel(-1); $('#pcNach').onclick = () => stapelWechsel(1);
-  // Wischen auf der Postkarte (wie in der Bildansicht): die ganze Karte samt Luftpost-Rahmen folgt dem Finger.
+  // Wischen auf der Postkarte (am Handy, wie in der Bildansicht): die ganze Karte samt Luftpost-Rahmen folgt dem Finger.
   // Verschoben wird über „translate“, weil „transform“ schon die leichte Schräglage (rotate) trägt.
   // Nach jeder Bewegung über 10 px wird der folgende Klick verschluckt, damit kein „Lesen“-Link ausgelöst wird.
   {
     let wisch = null, gewischt = false;
     const zurueck = (weich) => { pc.style.transition = weich ? 'opacity .25s ease, translate .2s ease' : ''; pc.style.translate = ''; };
-    pc.addEventListener('pointerdown', (ev) => { gewischt = false; if (!kartenStapel || wechselLaeuft || ev.target.closest('button')) return; wisch = { x: ev.clientX, y: ev.clientY, id: ev.pointerId }; pc.style.transition = 'opacity .25s ease'; });
+    // Nur mit Finger oder Stift – am Computer blättert man mit der Maus über die Pfeile ‹ › (Ziehen mit der Maus tut nichts)
+    pc.addEventListener('pointerdown', (ev) => { gewischt = false; if (ev.pointerType === 'mouse' || !kartenStapel || wechselLaeuft || ev.target.closest('button')) return; wisch = { x: ev.clientX, y: ev.clientY, id: ev.pointerId }; pc.style.transition = 'opacity .25s ease'; });
     // Ab 10 px Bewegung fängt die Karte den Zeiger: dann kommt das Loslassen auch an, wenn Finger oder Maus von der Karte
     // (oder aus dem Fenster) gerutscht sind – sonst bliebe sie verschoben hängen. Erst ab 10 px, damit Klicks auf Links normal bleiben.
     pc.addEventListener('pointermove', (ev) => {
