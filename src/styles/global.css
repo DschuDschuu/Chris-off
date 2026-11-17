@@ -427,8 +427,10 @@ body.nah .topr{opacity:0;visibility:hidden;position:absolute;right:max(16px, env
 .pc-stapel button:hover{background:#1d3f9a;color:#fff}
 .postcard.stapel{touch-action:pan-y}
 .postcard a,.postcard img{-webkit-user-drag:none}
-@keyframes pcWischL{from{transform:translateX(44px);opacity:0}to{transform:none;opacity:1}}
-@keyframes pcWischR{from{transform:translateX(-44px);opacity:0}to{transform:none;opacity:1}}
-.pc-in.wisch-l{animation:pcWischL .25s ease}
-.pc-in.wisch-r{animation:pcWischR .25s ease}
-@media (prefers-reduced-motion:reduce){.pc-in.wisch-l,.pc-in.wisch-r{animation:none}}
+/* Blättern im Stapel: die ganze Postkarte samt Rahmen gleitet herein. „translate“ statt „transform“, damit die
+   Schräglage (transform: rotate) bleibt; globus.js setzt beim Ziehen ebenfalls style.translate */
+@keyframes pcWischL{from{translate:44px 0;opacity:0}to{translate:0 0;opacity:1}}
+@keyframes pcWischR{from{translate:-44px 0;opacity:0}to{translate:0 0;opacity:1}}
+.postcard.wisch-l{animation:pcWischL .25s ease}
+.postcard.wisch-r{animation:pcWischR .25s ease}
+@media (prefers-reduced-motion:reduce){.postcard.wisch-l,.postcard.wisch-r{animation:none}}
