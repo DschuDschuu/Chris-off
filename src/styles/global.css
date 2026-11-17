@@ -223,7 +223,8 @@ figcaption{margin-top:8px;font-style:italic;color:var(--muted);font-size:15px}
 .mat p{margin:0;font-size:15px;color:#3b362f}
 .mat a{color:#1d1a16;font-weight:600}
 .mat .pn{font-family:var(--f-mono);font-size:10.5px;color:#7d7468}
-.lightbox img{max-width:min(1000px,100%);max-height:78vh;border-radius:8px;display:block}
+.lightbox img{max-width:min(1000px,100%);max-height:78vh;border-radius:8px;display:block;user-select:none;-webkit-user-drag:none}
+.lightbox{touch-action:pan-y pinch-zoom} /* seitliches Wischen wechselt das Bild (lesen.js) */
 .lightbox .cap{text-align:center;color:var(--muted);margin-top:10px;font-style:italic}
 .toast{position:fixed;left:50%;transform:translateX(-50%);top:calc(70px + env(safe-area-inset-top,0px));z-index:60;background:var(--panel-solid);border:1px solid var(--line);border-radius:999px;padding:9px 16px;font-family:var(--f-mono);font-size:12.5px;max-width:calc(100% - 32px);text-align:center;transition:opacity .3s}
 @media (max-width:760px){

@@ -44,6 +44,32 @@ export function startLesen() {
   $('#lbPrev').onclick = () => zeige(lbI - 1); $('#lbNext').onclick = () => zeige(lbI + 1);
   addEventListener('keydown', (ev) => { if (lb.hidden) return; if (ev.key === 'ArrowLeft') zeige(lbI - 1); if (ev.key === 'ArrowRight') zeige(lbI + 1); });
 
+  // Wischen in der großen Ansicht: nach links = nächstes Bild, nach rechts = vorheriges. Das Bild folgt dem Finger.
+  // Nach jeder Bewegung über 10 px (Wischen oder Ziehen) wird der folgende Klick verschluckt,
+  // sonst würde er als „Klick daneben“ die Ansicht schließen. Nur ein echtes Tippen daneben schließt.
+  const lbImg = $('#lbImg'); lbImg.draggable = false;
+  let wisch = null, gewischt = false;
+  lb.addEventListener('pointerdown', (ev) => {
+    gewischt = false; if (lbListe.length < 2 || ev.target.closest('button')) return;
+    wisch = { x: ev.clientX, y: ev.clientY, id: ev.pointerId }; lbImg.style.transition = 'none';
+  });
+  lb.addEventListener('pointermove', (ev) => {
+    if (!wisch || ev.pointerId !== wisch.id) return; const dx = ev.clientX - wisch.x;
+    if (Math.abs(dx) > Math.abs(ev.clientY - wisch.y)) lbImg.style.transform = `translateX(${dx}px)`;
+  });
+  lb.addEventListener('pointerup', (ev) => {
+    if (!wisch || ev.pointerId !== wisch.id) return; const dx = ev.clientX - wisch.x, dy = ev.clientY - wisch.y; wisch = null;
+    gewischt = Math.hypot(dx, dy) > 10;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      const r = dx < 0 ? 1 : -1; zeige(lbI + r);
+      // neues Bild kommt von der Seite, aus der man gewischt hat
+      lbImg.style.transform = `translateX(${r * 60}px)`; lbImg.style.opacity = '0';
+      requestAnimationFrame(() => requestAnimationFrame(() => { lbImg.style.transition = 'transform .25s ease, opacity .25s ease'; lbImg.style.transform = ''; lbImg.style.opacity = ''; }));
+    } else { lbImg.style.transition = 'transform .2s ease'; lbImg.style.transform = ''; }
+  });
+  lb.addEventListener('pointercancel', () => { wisch = null; lbImg.style.transform = ''; });
+  lb.addEventListener('click', (ev) => { if (gewischt) { gewischt = false; ev.stopPropagation(); } }, true);
+
   /* ---------- Links im Bilderrahmen ---------- */
   const rahmen = $('#rahmen');
   document.querySelectorAll('a[data-rahmen]').forEach((a) => a.addEventListener('click', (ev) => {
