@@ -21,8 +21,10 @@ const neuester = eintraege[0];
     </div>
     <div class="tc">
       <div class="cbar" id="cbar" hidden aria-live="polite"><div class="cb-top"><b id="cbName"></b><span id="cbPct"></span></div><span class="cb-meter"><i id="cbFill"></i></span><span class="cb-sub" id="cbSub"></span></div>
-      <button class="worldbtn" id="worldBtn" hidden>🌍 Ganze Weltkugel zeigen</button>
+      <button class="worldbtn" id="worldBtn" hidden aria-label="Ganze Weltkugel zeigen">🌍<span class="wb-text"> Ganze Weltkugel zeigen</span></button>
     </div>
+    {/* Quellenangabe für die Ortsnamen (CC BY 4.0), nur sichtbar, solange Ortsnamen auf dem Globus stehen */}
+    <p class="ortquelle" id="ortQuelle" hidden>Ortsnamen: <a href="https://www.geonames.org/" target="_blank" rel="noopener">GeoNames</a> (CC BY 4.0)</p>
     <div class="zoomctl" role="group" aria-label="Zoom"><button id="zIn" aria-label="Hineinzoomen">+</button><button id="zOut" aria-label="Herauszoomen">−</button><button id="zReset" aria-label="Ansicht zurücksetzen" style="font-size:15px">⟲</button></div>
 
     {/* Ohne JavaScript: einfache Liste aller Einträge */}

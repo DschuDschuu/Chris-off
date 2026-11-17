@@ -25,19 +25,29 @@ export async function startGlobus(cfg = {}) {
   const toast = (msg) => { if (!toastEl) return; toastEl.textContent = msg; toastEl.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (toastEl.hidden = true), 3200); };
 
   const TOPO = await (await fetch('/data/countries-110m.json')).json();
-  let TOPO50 = null;
+  let TOPO50 = null, ORTE = null; // 50m im Stillstand; genaue Küsten (pro Land) und Ortsnamen erst beim nahen Zoom
 
   /* ---------- Karten-Grundlagen ---------- */
   const land = feature(TOPO, TOPO.objects.land), borders = mesh(TOPO, TOPO.objects.countries, (a, b) => a !== b);
   const C110 = feature(TOPO, TOPO.objects.countries).features;
   const proj = geoOrthographic().clipAngle(90).precision(0.4), path = geoPath(proj, ctx), grat = geoGraticule10();
 
-  // Land jedes Eintrags automatisch bestimmen (Punkt im Land, sonst nächstes Land in der Nähe)
+  // Land jedes Eintrags automatisch bestimmen. Die grobe Karte kennt kleine Inseln nicht (z. B. Mallorca), daher:
+  // 1. Punkt liegt im Land  2. sonst Land eines anderen Eintrags mit gleichem Ländernamen (Kanaren → Spanien, nicht Marokko)
+  // 3. sonst Land mit der nächsten Küste/Grenze, bis ca. 450 km (früher: nächster Land-Mittelpunkt – Madrid ist zu weit von Mallorca)
   const cent = new Map(C110.map((c) => [c, geoCentroid(c)]));
+  for (const e of ENTRIES) { const f = C110.find((c) => geoContains(c, [e.lon, e.lat])); e.cid = f ? String(f.id) : null; }
+  const cidNachName = {}; for (const e of ENTRIES) if (e.cid && e.land) cidNachName[e.land.trim().toLowerCase()] ??= e.cid;
   for (const e of ENTRIES) {
-    let f = C110.find((c) => geoContains(c, [e.lon, e.lat]));
-    if (!f) { let bd = 1e9; for (const c of C110) { const d = geoDistance(cent.get(c), [e.lon, e.lat]); if (d < bd) { bd = d; f = c; } } if (bd > 0.08) f = null; }
-    e.cid = f ? String(f.id) : null;
+    if (e.cid) continue;
+    const n = e.land && cidNachName[e.land.trim().toLowerCase()]; if (n) { e.cid = n; continue; }
+    let bd = 0.07, best = null; const pt = [e.lon, e.lat];
+    for (const c of C110) {
+      if (geoDistance(cent.get(c), pt) > 0.6) continue; // weit entfernte Länder gar nicht erst durchgehen
+      const polys = c.geometry.type === 'Polygon' ? [c.geometry.coordinates] : c.geometry.coordinates;
+      for (const poly of polys) for (const ring of poly) for (const q of ring) { const d = geoDistance(q, pt); if (d < bd) { bd = d; best = String(c.id); } }
+    }
+    e.cid = best;
   }
   const VISITED = [...new Set(ENTRIES.map((e) => e.cid).filter(Boolean))];
   const CNAME = {}; ENTRIES.forEach((e) => { if (e.cid && !CNAME[e.cid]) CNAME[e.cid] = e.land; });
@@ -90,16 +100,22 @@ export async function startGlobus(cfg = {}) {
   const fogSm = document.createElement('canvas'), fsx = fogSm.getContext('2d'); let fogImg = null;
   let fogQ = innerWidth < 760 ? 0.75 : 1, fogEma = 5, fogTick = 0;
   function drawFog(now, Rr) {
-    const t0 = performance.now(), S = Math.max(80, Math.min(220, Math.round((Rr * 0.62 * fogQ * (stable < 2 ? 0.55 : 1)) / 10) * 10));
-    if (fogSm.width !== S) { fogSm.width = fogSm.height = S; fogImg = fsx.createImageData(S, S); }
-    else if (fogTick++ & 1 && stable >= 2) { ctx.save(); ctx.imageSmoothingEnabled = true; ctx.drawImage(fogSm, cur.cx - Rr, cur.cy - Rr, 2 * Rr, 2 * Rr); ctx.restore(); return; }
+    // Nur den sichtbaren Teil der Kugel rechnen (Schnitt aus Bildschirm und Kugel). Bei starkem Zoom ist die Kugel
+    // viel größer als der Bildschirm; ein Bild über die ganze Kugel wäre so grob, dass die freien Flächen um die Orte verschwinden.
+    const t0 = performance.now(), cx = cur.cx, cy = cur.cy;
+    const x0 = Math.max(0, cx - Rr), y0 = Math.max(0, cy - Rr), x1 = Math.min(w, cx + Rr), y1 = Math.min(h, cy + Rr), bw = x1 - x0, bh = y1 - y0;
+    if (bw <= 0 || bh <= 0) return;
+    const dichte = 0.31 * fogQ * (stable < 2 ? 0.55 : 1); // Nebel-Pixel pro Bildschirm-Pixel (wie bisher bei ganzer Kugel)
+    const SX = Math.max(60, Math.min(220, Math.round((bw * dichte) / 10) * 10)), SY = Math.max(60, Math.min(220, Math.round((bh * dichte) / 10) * 10));
+    if (fogSm.width !== SX || fogSm.height !== SY) { fogSm.width = SX; fogSm.height = SY; fogImg = fsx.createImageData(SX, SY); }
+    else if (fogTick++ & 1 && stable >= 2) { ctx.save(); ctx.imageSmoothingEnabled = true; ctx.drawImage(fogSm, x0, y0, bw, bh); ctx.restore(); return; }
     const d = fogImg.data, c0 = FOGC[gstyle][0], c1 = FOGC[gstyle][1], t = (now / 1000) * (reduce ? 0.5 : 1);
     const lam = (rot[0] * Math.PI) / 180, ph = (rot[1] * Math.PI) / 180, cl = Math.cos(lam), sl = Math.sin(lam), cp = Math.cos(ph), sp = Math.sin(ph);
     const k2 = TW / (2 * Math.PI), o1 = t * 0.105 * k2, o2 = -t * 0.175 * k2, vo = Math.sin(t * 0.265) * 6, vo1 = Math.sin(t * 0.15 + 1) * 3;
-    for (let j = 0; j < S; j++) {
-      const vy = 1 - ((j + 0.5) / S) * 2;
-      for (let i = 0; i < S; i++) {
-        const ux = ((i + 0.5) / S) * 2 - 1, r2 = ux * ux + vy * vy, k = (j * S + i) * 4;
+    for (let j = 0; j < SY; j++) {
+      const vy = (cy - (y0 + ((j + 0.5) / SY) * bh)) / Rr;
+      for (let i = 0; i < SX; i++) {
+        const ux = (x0 + ((i + 0.5) / SX) * bw - cx) / Rr, r2 = ux * ux + vy * vy, k = (j * SX + i) * 4;
         if (r2 >= 1) { d[k + 3] = 0; continue; }
         const z = Math.sqrt(1 - r2), X1 = z * cp + vy * sp, Z1 = vy * cp - z * sp, px = X1 * cl + ux * sl, py = -X1 * sl + ux * cl, pz = Z1;
         let m = 1;
@@ -117,7 +133,7 @@ export async function startGlobus(cfg = {}) {
       }
     }
     fsx.putImageData(fogImg, 0, 0);
-    ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(fogSm, cur.cx - Rr, cur.cy - Rr, 2 * Rr, 2 * Rr); ctx.restore();
+    ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(fogSm, x0, y0, bw, bh); ctx.restore();
     fogEma = fogEma * 0.9 + (performance.now() - t0) * 0.1; if (fogEma > 9 && fogQ > 0.45) fogQ *= 0.97; else if (fogEma < 4 && fogQ < 1) fogQ = Math.min(1, fogQ * 1.01);
   }
   function exploredArea() {
@@ -153,17 +169,138 @@ export async function startGlobus(cfg = {}) {
   }
 
   /* ---------- Feine Karte (wird nachgeladen) ---------- */
-  let L50 = null, C50meta = null;
+  let L50 = null;
   function lod50() {
     if (!TOPO50) return null;
     if (!L50) { const cs = feature(TOPO50, TOPO50.objects.countries).features; L50 = { land: feature(TOPO50, TOPO50.objects.land), countries: cs, visited: { type: 'FeatureCollection', features: cs.filter((f) => VISITED.includes(String(f.id))) } }; }
     return L50;
   }
-  function cull50(center, Rr) {
-    if (!C50meta) C50meta = lod50().countries.map((f) => { const c = geoCentroid(f), b = geoBounds(f); const r = b[1][0] < b[0][0] ? Math.PI : Math.max(...[b[0], b[1], [b[0][0], b[1][1]], [b[1][0], b[0][1]]].map((q) => geoDistance(c, q))); return { f, c, r }; });
-    const vis = Math.asin(Math.min(1, Math.hypot(w, h) / 2 / Rr)) + 0.06;
-    return { type: 'FeatureCollection', features: C50meta.filter((m) => geoDistance(m.c, center) - m.r < vis).map((m) => m.f) };
+  // Feinste Stufe (10m): genaue Küsten, eine Datei pro Land (prepare.mjs → /data/land10/<id>.json).
+  // Geladen werden nur die Länder im Bild; bis eine Datei da ist, wird für dieses Land die 50m-Form gezeichnet.
+  const L10 = new Map(); let l10Anzahl = 0; // ID → Feature (null = lädt gerade)
+  // Sichtbarer Ausschnitt als Längen-/Breiten-Kasten (Ecken und Kantenmitten zurückgerechnet); null, wenn nicht alles auf der Kugel liegt
+  function sichtKasten() {
+    const pts = [];
+    for (const fx of [0, 0.5, 1]) for (const fy of [0, 0.5, 1]) { const q = proj.invert([fx * w, fy * h]); if (!q || !isFinite(q[0]) || !isFinite(q[1])) return null; pts.push(q); }
+    const lats = pts.map((q) => q[1]), lon0 = pts[4][0], lons = pts.map((q) => lon0 + ((((q[0] - lon0) % 360) + 540) % 360) - 180); // Längen relativ zur Mitte, über die Datumsgrenze hinweg
+    return [Math.min(...lons) - 0.5, Math.min(...lats) - 0.5, Math.max(...lons) + 0.5, Math.max(...lats) + 0.5];
   }
+  const kastenSchnitt = (k, b) => { if (b[1][1] < k[1] || b[0][1] > k[3]) return false; let lo0 = b[0][0], lo1 = b[1][0]; if (lo1 < lo0) lo1 += 360; return [-360, 0, 360].some((d) => lo0 + d < k[2] && lo1 + d > k[0]); };
+  function land10Laden(center, Rr) {
+    const k = sichtKasten(); if (!k) return;
+    for (const f of cullIn(lod50(), center, Rr).features) {
+      const id = f.id == null ? null : String(f.id); if (!id || L10.has(id)) continue;
+      if (!kastenSchnitt(k, (f.bbox10 ??= geoBounds(f)))) continue; // nur Länder, die den Ausschnitt wirklich schneiden
+      L10.set(id, null);
+      fetch(`/data/land10/${id}.json`).then((r) => (r.ok ? r.json() : null)).then((g) => { if (g) { L10.set(id, g); l10Anzahl++; } }).catch(() => {});
+    }
+  }
+  // Sichtbare Länder in feinster verfügbarer Form, dazu die besuchten (für die Färbung)
+  function fein(center, Rr) {
+    const cs = cullIn(lod50(), center, Rr).features.map((f) => L10.get(String(f.id)) || f);
+    return { CC: { type: 'FeatureCollection', features: cs }, visited: { type: 'FeatureCollection', features: cs.filter((f) => VISITED.includes(String(f.id))) } };
+  }
+  // Nur die Länder, die im Bild liegen könnten (für 50m und 10m; Mittelpunkt + Radius je Land einmal berechnet)
+  function cullIn(L, center, Rr) {
+    if (!L.meta) L.meta = L.countries.map((f) => { const c = geoCentroid(f), b = geoBounds(f); const r = b[1][0] < b[0][0] ? Math.PI : Math.max(...[b[0], b[1], [b[0][0], b[1][1]], [b[1][0], b[0][1]]].map((q) => geoDistance(c, q))); return { f, c, r }; });
+    const vis = Math.asin(Math.min(1, Math.hypot(w, h) / 2 / Rr)) + 0.06;
+    return { type: 'FeatureCollection', features: L.meta.filter((m) => geoDistance(m.c, center) - m.r < vis).map((m) => m.f) };
+  }
+  // Ab wann die feinste Stufe gilt: Ausschnitt kleiner als ca. 800 km
+  const nahGenug = (Rr) => Rr > 8 * Math.min(w, h);
+
+  /* ---------- Nahansicht: feine Küsten und Ortsnamen ---------- */
+  let nahGeladen = false;
+  function nahDatenLaden() {
+    if (nahGeladen) return; nahGeladen = true;
+    fetch('/data/orte.json').then((r) => r.json()).then((o) => { ORTE = o.map(([name, lon, lat, ew]) => ({ name, lon, lat, ew, v: toV3([lon, lat]) })); }).catch(() => {});
+  }
+  // Wie dicht ist der Nebel an dieser Stelle? 0 = frei (erkundet), 1 = voller Nebel. Gleiche Rechnung wie in drawFog.
+  function nebelBei([px, py, pz]) {
+    let m = 1;
+    for (const e of entV) { const dt = px * e[0] + py * e[1] + pz * e[2]; if (dt > cosOut) { const q = (Math.acos(Math.min(1, dt)) - REVr) / FEA; m = Math.min(m, q <= 0 ? 0 : q * q * (3 - 2 * q)); } }
+    if (m > 0) for (const [A, B, n] of segs) {
+      const ad = Math.abs(px * n[0] + py * n[1] + pz * n[2]); if (ad > HW + FEH) continue;
+      const apn = (A[1] * pz - A[2] * py) * n[0] + (A[2] * px - A[0] * pz) * n[1] + (A[0] * py - A[1] * px) * n[2], pbn = (py * B[2] - pz * B[1]) * n[0] + (pz * B[0] - px * B[2]) * n[1] + (px * B[1] - py * B[0]) * n[2];
+      if (apn < 0 || pbn < 0) continue; const q = (Math.asin(ad) - HW) / FEH; m = Math.min(m, q <= 0 ? 0 : q * q * (3 - 2 * q));
+    }
+    return m;
+  }
+  // Ortsnamen nur in erkundeten Gegenden (unter dem Nebel unsichtbar). Je näher, desto kleinere Orte; keine Überlappung.
+  let quelleAn = false;
+  function drawOrte(Rr, center) {
+    let gezeigt = 0;
+    if (ORTE && Rr > 15 * Math.min(w, h) && !fly) {
+      // Computer: je näher, desto kleinere Orte. Handy: nur größere (ab 10.000, ganz nah ab 2.500), höchstens 8 Namen.
+      // ORTE ist nach Einwohnern sortiert, also sind die ersten gezeigten die größten sichtbaren.
+      const sichtKm = (EARTH * Math.min(w, h)) / Rr, handy = w <= 640, maxNamen = handy ? 8 : Infinity;
+      const minEw = handy ? (sichtKm > 300 ? 100000 : sichtKm > 40 ? 10000 : 2500) : sichtKm > 300 ? 50000 : sichtKm > 120 ? 8000 : sichtKm > 60 ? 2500 : 0;
+      ctx.font = '500 11.5px "IBM Plex Mono", monospace'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+      // Pins (und Haus) haben Vorrang: ihre Fläche ist von Anfang an belegt
+      const belegt = [];
+      for (const st of fotoStapel) belegt.push(st.box);
+      // Knöpfe und Leisten über der Leinwand: Namen sollen nicht darunter verschwinden
+      for (const s of ['.zoomctl', '#worldBtn', '#cbar', '.top .brand', '#postcard']) { const el = $(s); if (el && !el.hidden) { const q = el.getBoundingClientRect(); if (q.width) belegt.push([q.left - 4, q.top - 4, q.right + 4, q.bottom + 4]); } }
+      if (active && !active.zuhause && !cardE) { const [x, y] = proj([active.lon, active.lat]); belegt.push([x - 18 - active.ort.length * 7.6, y - 9, x, y + 9]); } // Schild des aktiven Pins
+      for (const e of HOME && HEIM.length ? [...ENTRIES, HOME] : ENTRIES) { if (e.zuhause || geoDistance([e.lon, e.lat], center) > 1.2) continue; const [x, y] = proj([e.lon, e.lat]); belegt.push([x - 12, y - 12, x + 12, y + 12]); }
+      for (const o of ORTE) {
+        if (gezeigt >= maxNamen) break;
+        if (o.ew < minEw || geoDistance([o.lon, o.lat], center) > 1.2) continue;
+        const [x, y] = proj([o.lon, o.lat]); if (x < -50 || y < -20 || x > w + 50 || y > h + 20) continue;
+        const a = 1 - nebelBei(o.v); if (a < 0.08) continue;
+        const tw = ctx.measureText(o.name).width, box = [x - 4, y - 8, x + 8 + tw, y + 8];
+        if (belegt.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) continue; belegt.push(box);
+        ctx.globalAlpha = a; ctx.beginPath(); ctx.arc(x, y, 2.4, 0, 7); ctx.fillStyle = '#5a6577'; ctx.fill();
+        ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.strokeText(o.name, x + 6, y); ctx.fillStyle = '#3b4659'; ctx.fillText(o.name, x + 6, y);
+        gezeigt++;
+      }
+      ctx.globalAlpha = 1; ctx.textBaseline = 'alphabetic';
+    }
+    const an = gezeigt > 0; if (an !== quelleAn) { quelleAn = an; const q = $('#ortQuelle'); if (q) q.hidden = !an; }
+  }
+
+  /* ---------- Fotos auf dem Globus: Polaroids beim nahen Zoom ---------- */
+  // Titelbild über dem Pin; Einträge dicht beieinander werden ein Stapel (neuestes oben, Zahl dran) und fächern
+  // sich beim weiteren Reinzoomen von selbst auf. Zuhause-Einträge nicht (dafür gibt es das Haus mit Liste).
+  const FOTO = new Map();
+  function fotoBild(url) { let i = FOTO.get(url); if (!i) { i = new Image(); i.decoding = 'async'; i.src = url; FOTO.set(url, i); } return i.complete && i.naturalWidth ? i : null; }
+  const neigung = (id) => { let x = 0; for (const c of id) x = (x * 31 + c.charCodeAt(0)) | 0; return ((((x % 15) + 15) % 15) - 7) * (Math.PI / 180); };
+  let fotoStapel = [], fotoSeit = null;
+  function fotoLayout(Rr, center, now) {
+    fotoStapel = [];
+    if (modus === 'home' && Rr > 15 * Math.min(w, h) && !fly) {
+      for (const e of ENTRIES) { // ENTRIES: neueste zuerst → erster einer Gruppe ist der neueste
+        if (!e.bild || e.zuhause || geoDistance([e.lon, e.lat], center) > 1.2) continue;
+        const [x, y] = proj([e.lon, e.lat]); if (x < -60 || x > w + 60 || y < -20 || y > h + 90) continue;
+        // 72 px ≈ ein schräges Polaroid: liegen Pins näher beieinander, würden sich die Fotos überlappen → Stapel
+        const g = fotoStapel.find((st) => Math.hypot(st.x - x, st.y - y) < 72); if (g) g.es.push(e); else fotoStapel.push({ e, es: [e], x, y });
+      }
+      for (const st of fotoStapel) st.box = [st.x - 32, st.y - 78, st.x + 36, st.y - 10];
+    }
+    fotoSeit = fotoStapel.length ? fotoSeit ?? now : null;
+  }
+  function drawFotos(now) {
+    if (!fotoStapel.length) return;
+    const al = Math.min(1, (now - fotoSeit) / 350);
+    for (const st of fotoStapel) {
+      for (let k = Math.min(3, st.es.length) - 1; k >= 0; k--) { // unten die älteren, oben der neueste
+        const e = st.es[k], img = fotoBild(e.bild);
+        ctx.save(); ctx.globalAlpha = al; ctx.translate(st.x + k * 5, st.y - 44 - k * 3); ctx.rotate(neigung(e.id) + k * 0.1);
+        ctx.shadowColor = 'rgba(20,30,50,.28)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 3; ctx.fillStyle = '#fffdf8'; ctx.fillRect(-25, -27, 50, 58);
+        ctx.shadowColor = 'transparent';
+        if (img) { const m = Math.min(img.naturalWidth, img.naturalHeight); ctx.drawImage(img, (img.naturalWidth - m) / 2, (img.naturalHeight - m) / 2, m, m, -21, -23, 42, 42); }
+        else { ctx.fillStyle = '#cdd5e0'; ctx.fillRect(-21, -23, 42, 42); }
+        ctx.restore();
+      }
+      if (st.es.length > 1) {
+        ctx.globalAlpha = al; ctx.beginPath(); ctx.arc(st.x + 28, st.y - 72, 10, 0, 7); ctx.fillStyle = '#1d3f9a'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+        ctx.fillStyle = '#fff'; ctx.font = '600 11px "IBM Plex Mono", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(st.es.length), st.x + 28, st.y - 71.5);
+        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+  const fotoAt = (px, py) => fotoStapel.find((st) => px > st.box[0] && px < st.box[2] && py > st.box[1] && py < st.box[3]) || null;
 
   /* ---------- Länder-Statistik (Fog of War pro Land) ---------- */
   let focusC = null, ortZoom = false; const CSTAT = {};
@@ -192,11 +329,19 @@ export async function startGlobus(cfg = {}) {
   // Klick auf einen Eintrag: nah an den Ort heran (ca. ORT_KM), nicht aufs ganze Land.
   // Das Land bleibt für die Leiste „x % erkundet“ gemerkt.
   function focusCountry(e) {
-    focusC = C110.some((x) => String(x.id) === e.cid) ? e.cid : null; ortZoom = true;
+    focusC = C110.some((x) => String(x.id) === e.cid) ? e.cid : null; ortZoom = true; updateCbar();
     const z = Math.max(1.5, Math.min(MAXZ, zoomFuerKm(ORT_KM)));
-    // Am Handy liegt die Postkarte unten: Ort etwas oberhalb der Mitte zeigen
-    const hoch = w <= 640 ? ((h * 0.22) / (baseR() * z)) * (180 / Math.PI) : 0;
-    flyTo({ lon: e.lon, lat: e.lat - hoch }, 1900, false, true, z); updateCbar();
+    flyTo({ lon: e.lon, lat: e.lat - ortVersatz(z) }, 1900, false, true, z);
+  }
+  // Am Handy decken Leisten oben und die Postkarte unten viel ab: Ort in die Mitte der freien Lücke dazwischen setzen.
+  // Gibt zurück, um wie viele Grad Breite der Blickpunkt dafür nach Süden rücken muss (am Computer 0).
+  // Erst aufrufen, wenn Länderleiste und Postkarte eingeblendet sind, sonst stimmt die Messung nicht.
+  function ortVersatz(z) {
+    if (w > 640) return 0;
+    const unterkante = (el) => (el && !el.hidden ? el.getBoundingClientRect().bottom : 0);
+    const oben = Math.max(unterkante($('.top')), unterkante($('#cbar')));
+    const unten = Math.max(oben + 40, pc && !pc.hidden ? pc.getBoundingClientRect().top : h - 100);
+    return ((tgt.cy - (oben + unten) / 2) / (baseR() * z)) * (180 / Math.PI);
   }
   function updateCbar() {
     const bar = $('#cbar'); if (!bar) return; if (!focusC) { bar.hidden = true; return; }
@@ -339,7 +484,7 @@ export async function startGlobus(cfg = {}) {
 
   /* ---------- Zeichnen ---------- */
   const baseCv = document.createElement('canvas'), bctx = baseCv.getContext('2d'), bpath = geoPath(proj, bctx);
-  let baseKey = '', lastKey = '', stable = 0, baseHi = false, curHi = false;
+  let baseKey = '', lastKey = '', stable = 0, baseHi = 0, curHi = 0;
   function drawBase(c2, pth, G, Rr, cx, cy, center, hi) {
     const ga = G.glowA || 0.35;
     const glow = c2.createRadialGradient(cx, cy, Rr * 0.95, cx, cy, Rr * 1.35); glow.addColorStop(0, `rgba(${G.glow},${ga})`); glow.addColorStop(1, `rgba(${G.glow},0)`);
@@ -349,8 +494,8 @@ export async function startGlobus(cfg = {}) {
     c2.beginPath(); pth(grat); c2.strokeStyle = G.grat; c2.lineWidth = 0.7; c2.stroke();
     if (G.dots) { if (!DOTS) buildDots(); const dr = Math.max(1.1, Rr * 0.0085); for (const v of [false, true]) { c2.beginPath(); for (const d of DOTS) { if (d[2] !== v || geoDistance(d, center) > 1.55) continue; const [x, y] = proj(d); c2.moveTo(x + dr, y); c2.arc(x, y, dr, 0, 7); } c2.fillStyle = v ? G.dotV : G.dot; c2.fill(); } }
     else if (hi) {
-      const CC = cull50(center, Rr), LD = lod50(); proj.precision(0); const P = new Path2D(geoPath(proj)(CC) || ''); c2.fillStyle = G.land; c2.fill(P);
-      c2.beginPath(); pth(LD.visited); c2.fillStyle = G.visited; c2.fill(); c2.strokeStyle = G.coast || G.border; c2.lineWidth = 0.8; c2.stroke(P); proj.precision(0.4);
+      const F = hi === 10 ? fein(center, Rr) : { CC: cullIn(lod50(), center, Rr), visited: lod50().visited }; proj.precision(0); const P = new Path2D(geoPath(proj)(F.CC) || ''); c2.fillStyle = G.land; c2.fill(P);
+      c2.beginPath(); pth(F.visited); c2.fillStyle = G.visited; c2.fill(); c2.strokeStyle = G.coast || G.border; c2.lineWidth = 0.8; c2.stroke(P); proj.precision(0.4);
     } else {
       c2.beginPath(); pth(land); c2.fillStyle = G.land; c2.fill(); if (G.coast) { c2.strokeStyle = G.coast; c2.lineWidth = 0.9; c2.stroke(); }
       c2.beginPath(); pth(visited); c2.fillStyle = G.visited; c2.fill();
@@ -368,26 +513,33 @@ export async function startGlobus(cfg = {}) {
     else if (!drag && Math.abs(vel[0]) + Math.abs(vel[1]) > 0.004) { rot[0] += vel[0]; rot[1] = Math.max(-85, Math.min(85, rot[1] + vel[1])); vel[0] *= 0.93; vel[1] *= 0.93; }
     if (modus === 'home') {
       const zb = zoom > 1.25 && !fly; if (zb !== worldShown) { worldShown = zb; $('#worldBtn').hidden = !zb; }
-      const zs = zoom > 1.25 || !!focusC; if (zs !== statsHidden) { statsHidden = zs; $('#stats').classList.toggle('zoomed', zs); if (zs) $('#ctyPop').hidden = true; }
+      const zs = zoom > 1.25 || !!focusC; if (zs !== statsHidden) { statsHidden = zs; $('#stats').classList.toggle('zoomed', zs); document.body.classList.toggle('nah', zs); if (zs) $('#ctyPop').hidden = true; }
     }
     ctx.clearRect(0, 0, w, h);
     const { R: Rr, cx, cy } = cur; proj.scale(Rr).translate([cx, cy]).rotate(rot);
     const G = GSTYLES[gstyle], center = [-rot[0], -rot[1]];
-    const key = [rot[0].toFixed(3), rot[1].toFixed(3), Rr.toFixed(1), cx.toFixed(1), cy.toFixed(1), w, h, dpr, !!TOPO50].join('|');
+    const key = [rot[0].toFixed(3), rot[1].toFixed(3), Rr.toFixed(1), cx.toFixed(1), cy.toFixed(1), w, h, dpr, !!TOPO50, l10Anzahl].join('|');
+    if (modus === 'home' && nahGenug(Rr * 0.75)) nahDatenLaden(); // etwas vorher anfangen zu laden
     if (key === lastKey) stable++; else stable = 0; lastKey = key;
     if (stable >= 2) {
-      const wantHi = !!TOPO50 && Rr > 850 && stable >= 8;
-      if (baseKey !== key || (wantHi && !baseHi)) { if (baseCv.width !== cv.width || baseCv.height !== cv.height) { baseCv.width = cv.width; baseCv.height = cv.height; } bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.clearRect(0, 0, baseCv.width, baseCv.height); bctx.setTransform(dpr, 0, 0, dpr, 0, 0); drawBase(bctx, bpath, G, Rr, cx, cy, center, wantHi); baseKey = key; baseHi = wantHi; }
+      // 0 = grob, 50 = mittel, 10 = fein (erst im Stillstand, damit Bewegungen flüssig bleiben)
+      const wantHi = !!TOPO50 && Rr > 850 && stable >= 8 ? (nahGenug(Rr) ? 10 : 50) : 0;
+      if (baseKey !== key || (wantHi && wantHi !== baseHi)) {
+        // genaue Länder nur nachladen, wenn neu gezeichnet wird (nicht in jedem Bild)
+        if (wantHi === 10) land10Laden(center, Rr);
+ if (baseCv.width !== cv.width || baseCv.height !== cv.height) { baseCv.width = cv.width; baseCv.height = cv.height; } bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.clearRect(0, 0, baseCv.width, baseCv.height); bctx.setTransform(dpr, 0, 0, dpr, 0, 0); drawBase(bctx, bpath, G, Rr, cx, cy, center, wantHi); baseKey = key; baseHi = wantHi; }
       ctx.drawImage(baseCv, 0, 0, w, h); curHi = baseHi;
-    } else { drawBase(ctx, path, G, Rr, cx, cy, center, false); curHi = false; }
+    } else { drawBase(ctx, path, G, Rr, cx, cy, center, 0); curHi = 0; }
     drawFog(now, Rr);
     if (focusC && modus === 'home') {
-      const fc = (curHi ? lod50().countries : C110).find((x) => String(x.id) === focusC);
+      const fc = (curHi === 10 && L10.get(focusC)) || (curHi ? lod50().countries : C110).find((x) => String(x.id) === focusC);
       if (fc) { if (curHi) proj.precision(0); ctx.beginPath(); path(fc); proj.precision(0.4); ctx.setLineDash([7, 5]); ctx.lineWidth = 2; ctx.strokeStyle = gstyle === 'vintage' ? 'rgba(150,40,35,.85)' : 'rgba(207,111,16,.9)'; ctx.stroke(); ctx.setLineDash([]); }
     }
     ctx.beginPath(); path(night); ctx.fillStyle = G.night; ctx.fill();
     if (G.shade) { const sh = ctx.createRadialGradient(cx - Rr * 0.4, cy - Rr * 0.45, Rr * 0.2, cx, cy, Rr * 1.02); sh.addColorStop(0, G.shade[0]); sh.addColorStop(0.7, G.shade[1]); sh.addColorStop(1, G.shade[2]); ctx.beginPath(); path({ type: 'Sphere' }); ctx.fillStyle = sh; ctx.fill(); }
     if (G.rim) { ctx.beginPath(); path({ type: 'Sphere' }); ctx.strokeStyle = G.rim; ctx.lineWidth = 1.4; ctx.stroke(); if (gstyle === 'vintage') { ctx.beginPath(); ctx.arc(cx, cy, Rr + 7, 0, 7); ctx.lineWidth = 0.8; ctx.stroke(); } }
+    fotoLayout(Rr, center, now);
+    if (modus === 'home') drawOrte(Rr, center);
     drawSteps(now, G, Rr, center);
     if (HOME && HEIM.length && geoDistance([HOME.lon, HOME.lat], center) < 1.5) drawHome(now);
     for (const e of ENTRIES) {
@@ -396,6 +548,7 @@ export async function startGlobus(cfg = {}) {
       ctx.beginPath(); ctx.arc(x, y, isA ? 6 : 4, 0, 7); ctx.fillStyle = isA ? '#ec8a1e' : '#ffffff'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#1c2433'; ctx.stroke();
       if (modus === 'home' && ((e === hoverE && e !== cardE) || (isA && !fly && !cardE))) { ctx.font = '500 12px "IBM Plex Mono", monospace'; ctx.fillStyle = '#1c2433'; const hv = e === hoverE; ctx.textAlign = hv ? 'left' : 'right'; ctx.fillText(e.ort.toUpperCase(), hv ? x + 12 : x - 14, y + 4); ctx.textAlign = 'left'; }
     }
+    drawFotos(now);
     if (modus === 'home') drawPoems(now, Rr, center);
     if (modus === 'home' && cardE && pc && !pc.hidden) {
       const vis = !fly && geoDistance([cardE.lon, cardE.lat], center) < 1.45; pc.classList.toggle('away', !vis);
@@ -463,6 +616,9 @@ export async function startGlobus(cfg = {}) {
     if (homeAt(ev.clientX, ev.clientY, 16)) { openHome(); return; }
     const near = pinsNear(ev.clientX, ev.clientY, 24);
     if (near.length >= 2 && zoom < MAXZ * 0.9) { const c = near.reduce((a, e) => [a[0] + e.lon / near.length, a[1] + e.lat / near.length], [0, 0]); flyTo({ lon: c[0], lat: c[1] }, 1000, false, true, Math.min(MAXZ, zoom * 2.4)); toast('Mehrere Orte liegen hier dicht beieinander, herangezoomt.'); return; }
+    const fs = fotoAt(ev.clientX, ev.clientY);
+    if (fs && fs.es.length > 1) { const c = fs.es.reduce((a, e) => [a[0] + e.lon / fs.es.length, a[1] + e.lat / fs.es.length], [0, 0]); flyTo({ lon: c[0], lat: c[1] }, 1000, false, true, Math.min(MAXZ, zoom * 2.4)); return; }
+    if (fs) { select(fs.e); return; }
     const hit = pinAt(ev.clientX, ev.clientY, 22); if (hit) { select(hit); return; }
     closeCard();
   });
@@ -474,7 +630,7 @@ export async function startGlobus(cfg = {}) {
   });
   cv.addEventListener('pointermove', (ev) => {
     lastMouse = [ev.clientX, ev.clientY];
-    if (!ptrs.has(ev.pointerId)) { hoverPoem = poemAt(ev.clientX, ev.clientY, 12); hoverHome = hoverPoem === null && homeAt(ev.clientX, ev.clientY, 16); const f = hoverPoem === null && !hoverHome ? pinAt(ev.clientX, ev.clientY, 18) : null; hoverE = f; cv.style.cursor = f || hoverHome || hoverPoem !== null ? 'pointer' : ''; return; }
+    if (!ptrs.has(ev.pointerId)) { hoverPoem = poemAt(ev.clientX, ev.clientY, 12); hoverHome = hoverPoem === null && homeAt(ev.clientX, ev.clientY, 16); const ueberFoto = !!fotoAt(ev.clientX, ev.clientY); const f = hoverPoem === null && !hoverHome ? pinAt(ev.clientX, ev.clientY, 18) : null; hoverE = f; cv.style.cursor = f || hoverHome || ueberFoto || hoverPoem !== null ? 'pointer' : ''; return; }
     ptrs.set(ev.pointerId, [ev.clientX, ev.clientY]);
     if (pinch && ptrs.size === 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (d > 0) setZoom((pinch.z * d) / pinch.d); dragMoved = true; return; }
     if (drag) {
@@ -502,7 +658,7 @@ export async function startGlobus(cfg = {}) {
   const esc = (s = '') => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   function select(e, spin) { active = e; openCard(e); if (spin) { flyTo(e, 3000, true, false, 1); setTimeout(() => { if (cardE === e) focusCountry(e); }, 3000); } else focusCountry(e); }
   function openCard(e) {
-    cardE = e; pc.classList.remove('heim'); $('#pcImgLink').hidden = false;
+    cardE = e; pc.classList.remove('heim'); $('#pcImgLink').hidden = false; document.body.classList.add('karte-offen');
     $('#pcImg').src = e.bild || ''; $('#pcImg').alt = `Titelbild: ${e.ort}`; $('#pcImg').hidden = !e.bild;
     const art = e === ENTRIES[0] ? 'Neuester Eintrag' : vorEinemJahr.includes(e) ? 'Heute vor einem Jahr' : 'Eintrag';
     $('#pcEyebrow').textContent = e.reiseTitel ? (art === 'Eintrag' ? `Reise · ${e.reiseTitel}` : `${art} · Reise ${e.reiseTitel}`) : art;
@@ -514,16 +670,17 @@ export async function startGlobus(cfg = {}) {
   }
   // Zuhause-Karte: dieselbe Postkarte, aber ohne Bild und mit der Liste der Einträge von zuhause (neueste zuerst)
   function openHome() {
-    active = null; cardE = { heim: true, lon: HOME.lon, lat: HOME.lat }; pc.classList.add('heim'); $('#pcImgLink').hidden = true;
+    active = null; cardE = { heim: true, lon: HOME.lon, lat: HOME.lat }; pc.classList.add('heim'); $('#pcImgLink').hidden = true; document.body.classList.add('karte-offen');
     $('#pcEyebrow').textContent = 'Zuhause'; $('#pcTitle').textContent = HOME.ort;
     $('#pcMeta').textContent = `${HOME.land} · ${HEIM.length} ${HEIM.length === 1 ? 'Eintrag' : 'Einträge'} von zuhause`; $('#pcEx').hidden = true; $('#pcPm').textContent = HOME.ort.toUpperCase();
     $('#pcActions').innerHTML = `<ul class="heim-liste">${HEIM.map((e) => `<li><button data-id="${esc(e.id)}"><b>${esc(e.titel)}</b><span class="d">${esc(e.datum)}</span></button></li>`).join('')}</ul>`;
     pc.hidden = false; pc.classList.add('away'); pc.classList.remove('pop-in'); void pc.offsetWidth; pc.classList.add('pop-in');
     focusC = null; ortZoom = true; $('#cbar').hidden = true;
-    flyTo(HOME, 1600, false, true, Math.max(1.5, Math.min(MAXZ, zoomFuerKm(ORT_KM * 3))));
+    const z = Math.max(1.5, Math.min(MAXZ, zoomFuerKm(ORT_KM * 3)));
+    flyTo({ lon: HOME.lon, lat: HOME.lat - ortVersatz(z) }, 1600, false, true, z);
   }
   $('#pcActions').addEventListener('click', (ev) => { const b = ev.target.closest('.heim-liste button'); if (b) select(EBY[b.dataset.id]); });
-  function closeCard(keepView) { cardE = null; pc.hidden = true; if (focusC || ortZoom) { focusC = null; ortZoom = false; $('#cbar').hidden = true; if (!keepView) flyTo({ lon: -rot[0], lat: -rot[1] }, 1200, false, true, 1); } }
+  function closeCard(keepView) { cardE = null; pc.hidden = true; document.body.classList.remove('karte-offen'); if (focusC || ortZoom) { focusC = null; ortZoom = false; $('#cbar').hidden = true; if (!keepView) flyTo({ lon: -rot[0], lat: -rot[1] }, 1200, false, true, 1); } }
   $('#pcClose').onclick = () => closeCard();
 
   /* ---------- Gedicht-Brief ---------- */
