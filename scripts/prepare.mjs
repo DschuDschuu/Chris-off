@@ -112,7 +112,7 @@ await fs.writeFile(listeDatei, JSON.stringify(neu));
 // 3. Editor-Konfiguration
 const vorlage = await fs.readFile(path.join(root, 'admin-vorlage/config.yml'), 'utf8');
 await fs.mkdir(path.join(pub, 'admin'), { recursive: true });
-// Zuhause (einstellungen/zuhause.md) als Vorgabe für Ort, Land und Karte neuer Einträge.
+// Zuhause (einstellungen/zuhause.md) als Startpunkt der Karte neuer Einträge (Ort/Land ergänzt der Bau, siehe daten.ts).
 // Ohne Zuhause bleiben die Felder leer. JSON-Strings sind gültiges YAML, daher JSON.stringify.
 const heim = await zuhauseLesen();
 await fs.writeFile(
@@ -120,11 +120,9 @@ await fs.writeFile(
   vorlage
     .replaceAll('__REPO__', site.inhalteRepo)
     .replaceAll('__URL__', site.url)
-    .replaceAll('__ZUHAUSE_ORT__', JSON.stringify(heim?.ort ?? ''))
-    .replaceAll('__ZUHAUSE_LAND__', JSON.stringify(heim?.land ?? ''))
     .replaceAll('__ZUHAUSE_KARTE__', JSON.stringify(heim?.karte ?? '')),
 );
-console.log(heim ? `Editor: neue Einträge starten mit Zuhause ${heim.ort}` : 'Editor: kein Zuhause angegeben, Ort-Felder starten leer');
+console.log(heim ? `Editor: neue Einträge starten mit dem Punkt von Zuhause ${heim.ort}` : 'Editor: kein Zuhause angegeben, Karte startet leer');
 for (const f of ['index.html', 'editor.css', 'vorschau.js']) await fs.copyFile(path.join(root, 'admin-vorlage', f), path.join(pub, 'admin', f));
 
 // Schriften für Editor und Vorschau (dieselben wie auf der Seite, liegen auf dem eigenen Server)

@@ -24,8 +24,9 @@ collections:
     label_singular: Eintrag
     folder: eintraege
     create: true
-    slug: '{{year}}-{{month}}-{{ort}}'
-    summary: '{{titel}} · {{ort}}'
+    # Dateiname aus dem Titel (früher aus dem Ort – der darf jetzt leer bleiben); bestehende Einträge behalten ihren Namen
+    slug: '{{year}}-{{month}}-{{titel}}'
+    summary: '{{titel}}'
     sortable_fields: [datum, titel, ort]
     fields:
       # Reihenfolge: erst schreiben (Titel, Bausteine, Persönliches), dann die Angaben. Pflichtfelder unten sind
@@ -53,12 +54,12 @@ collections:
       - { label: Datum, name: datum, widget: datetime, format: 'YYYY-MM-DD', date_format: 'DD.MM.YYYY', time_format: false, default: '{{now}}', hint: 'Steht automatisch auf heute.' }
       # Einträge mit Reise sind Stationen dieser Reise (Reihenfolge nach Datum), ohne Reise einzelne Tagebuch-Einträge.
       - { label: Gehört zur Reise, name: reise, widget: relation, collection: reisen, value_field: '{{slug}}', search_fields: [titel], display_fields: ['{{titel}}'], required: false, hint: 'Leer = einzelner Tagebuch-Eintrag.' }
-      # Ort, Land und Karte starten mit dem Zuhause (Einstellungen → Zuhause); prepare.mjs setzt die __ZUHAUSE_…__-Platzhalter ein.
-      # Einträge nah am Zuhause erscheinen auf dem Globus gemeinsam als Haus-Pin.
-      - { label: Ort, name: ort, widget: string, default: __ZUHAUSE_ORT__, hint: 'z. B. Lissabon. Steht anfangs auf deinem Zuhause – unterwegs einfach ändern.' }
-      - { label: Land, name: land, widget: string, default: __ZUHAUSE_LAND__, hint: 'auf Deutsch, z. B. Portugal' }
+      # Der Punkt startet beim Zuhause (Einstellungen → Zuhause; prepare.mjs setzt den Platzhalter im Kartenfeld ein). Ort und Land dürfen leer
+      # bleiben: der Bau ergänzt sie aus dem Punkt (alleEintraege() in src/lib/daten.ts). Einträge nah am Zuhause = Haus-Pin.
+      - { label: Ort, name: ort, widget: string, required: false, hint: 'Leer lassen = wird aus dem Punkt ergänzt (nächster größerer Ort). Oder selbst schreiben, z. B. Cala Romantica.' }
+      - { label: Land, name: land, widget: string, required: false, hint: 'Leer lassen = wird ergänzt. Sonst auf Deutsch, z. B. Portugal.' }
       # Karte statt Zahlenfelder. decimals: 2 = ca. 1 km genau, damit z. B. die Unterkunft nicht erkennbar ist.
-      - { label: Ort auf der Karte, name: karte, widget: map, decimals: 2, default: __ZUHAUSE_KARTE__, center: [10, 48], zoom: 4, hint: 'Suchen, auf die Karte tippen oder Standort nehmen (ca. 1 km genau). Steht anfangs auf deinem Zuhause.' }
+      - { label: Ort auf der Karte, name: karte, widget: map, decimals: 2, default: __ZUHAUSE_KARTE__, center: [10, 48], zoom: 4, hint: 'Unterwegs: Pfeil-Knopf „Aktuellen Standort verwenden“ antippen – fertig. Oder suchen bzw. auf die Karte tippen (ca. 1 km genau). Steht anfangs auf deinem Zuhause.' }
       - { label: Ortszeit beim Schreiben, name: uhrzeit, widget: string, required: false, hint: 'z. B. 21:40' }
       - { label: Wetter, name: wetter, widget: string, required: false, hint: 'z. B. 19 °C, klarer Himmel' }
       - { label: Titelbild, name: titelbild, widget: image, required: false }

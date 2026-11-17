@@ -13,10 +13,11 @@ export function orteLesen(datei) {
   const text = () => { const n = varint(); const t = b.toString('utf8', pos, pos + n); pos += n; return t; };
   const orte = []; let lon = 0, lat = 0;
   while (pos < b.length) {
-    const ende = varint() + pos, o = { name: '', ew: 0, lon: 0, lat: 0 };
+    const ende = varint() + pos, o = { name: '', land: '', ew: 0, lon: 0, lat: 0 };
     while (pos < ende) {
       const tag = varint(), feld = Math.floor(tag / 8), typ = tag & 7;
       if (feld === 2) o.name = text();
+      else if (feld === 3) o.land = text(); // Ländercode (ISO, z. B. ES)
       else if (feld === 9) o.ew = varint();
       else if (feld === 10) { lon += svarint(); o.lon = lon / 1e5; }
       else if (feld === 11) { lat += svarint(); o.lat = lat / 1e5; }

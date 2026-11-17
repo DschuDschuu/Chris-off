@@ -1,4 +1,6 @@
 import { getCollection, getEntry } from 'astro:content';
+import { createRequire } from 'node:module';
+import { orteLesen } from '../../scripts/orte.mjs';
 import { bausteinText, type Baustein } from './bausteine';
 
 export const datumDE = (d: Date) =>
@@ -49,9 +51,37 @@ export const entfernungKm = (lat1: number, lon1: number, lat2: number, lon2: num
   return 2 * 6371 * Math.asin(Math.sqrt(a));
 };
 
+// Ort und Land aus dem Punkt ableiten, wenn Christoph die Felder leer lässt (z. B. nach „Aktuellen Standort verwenden“).
+// Ort: größter Ort bis 8 km, sonst nächster bis 50 km (GeoNames über all-the-cities, Orte ab ca. 1.000 Einwohnern –
+// kleine Orte fehlen, dann kommt der Nachbarort). Land: deutscher Name aus dem Ländercode. Läuft nur beim Bau.
+let ORTE_ALLE: ReturnType<typeof orteLesen> | null = null;
+const LANDNAME = new Intl.DisplayNames(['de'], { type: 'region' });
+export function ortAusPunkt(lat: number, lon: number) {
+  ORTE_ALLE ??= orteLesen(createRequire(import.meta.url).resolve('all-the-cities/cities.pbf'));
+  let naechster = null, nd = Infinity, groesster = null;
+  for (const o of ORTE_ALLE) {
+    if (Math.abs(o.lat - lat) > 1) continue;
+    const d = entfernungKm(lat, lon, o.lat, o.lon);
+    if (d < nd) { nd = d; naechster = o; }
+    if (d < 8 && (!groesster || o.ew > groesster.ew)) groesster = o;
+  }
+  const o = groesster || (nd < 50 ? naechster : null), code = (groesster || naechster)?.land;
+  let land = ''; try { land = code ? LANDNAME.of(code) ?? '' : ''; } catch {}
+  return { ort: o?.name || 'Unterwegs', land };
+}
+
+// Alle veröffentlichten Einträge, neueste zuerst. Fehlen Ort oder Land, werden sie ergänzt:
+// am Zuhause (unter ZUHAUSE_KM) mit dem Zuhause, sonst aus dem Punkt. Eigene Eingaben haben immer Vorrang.
 export async function alleEintraege() {
-  const a = await getCollection('eintraege', (e) => !e.data.entwurf);
-  return a.sort((x, y) => y.data.datum.getTime() - x.data.datum.getTime());
+  const [a, heim] = await Promise.all([getCollection('eintraege', (e) => !e.data.entwurf), zuhause()]);
+  return a
+    .map((e) => {
+      const d = e.data; if (d.ort && d.land) return e;
+      const amZuhause = heim && entfernungKm(d.breite, d.laenge, heim.breite, heim.laenge) < ZUHAUSE_KM;
+      const v = amZuhause ? { ort: heim.ort, land: heim.land } : ortAusPunkt(d.breite, d.laenge);
+      return { ...e, data: { ...d, ort: d.ort || v.ort, land: d.land || v.land } };
+    })
+    .sort((x, y) => y.data.datum.getTime() - x.data.datum.getTime());
 }
 
 export async function alleGedichte() {

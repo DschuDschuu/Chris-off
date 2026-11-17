@@ -37,8 +37,9 @@ const eintraege = defineCollection({
     .object({
       titel: z.string(),
       datum: z.coerce.date(),
-      ort: z.string(),
-      land: z.string(),
+      // Ort und Land dürfen leer bleiben: alleEintraege() (src/lib/daten.ts) ergänzt sie dann aus dem Punkt
+      ort: z.string().optional().nullable().transform((v) => v?.trim() || ''),
+      land: z.string().optional().nullable().transform((v) => v?.trim() || ''),
       ...ortsFelder,
       reise: z.string().optional().nullable(), // Verweis auf eine Reise (Dateiname/Slug), leer = Tagebuch
       // Baukasten: Text, Zwischenüberschrift, Foto, Fotostreifen, Notizzettel, Lied (siehe src/lib/bausteine.ts)
