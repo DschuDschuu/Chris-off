@@ -290,6 +290,9 @@ export async function startGlobus(cfg = {}) {
         // 72 px ≈ ein schräges Polaroid: liegen Pins näher beieinander, würden sich die Fotos überlappen → Stapel
         const g = fotoStapel.find((st) => Math.hypot(st.x - x, st.y - y) < 72); if (g) g.es.push(e); else fotoStapel.push({ e, es: [e], x, y });
       }
+      // Postkarte ohne Stapel geöffnet (Neuladen, „Alle Einträge“, Zufall …), liegt aber in einem Fotostapel
+      // oder am selben Ort wie andere: gleich blättern können, wie nach Tippen auf den Stapel
+      if (cardE && !kartenStapel && ENTRIES.includes(cardE) && !cardE.zuhause) stapelNachtragen();
       // Ist eine Postkarte aus dem Stapel offen, liegt ihr Foto oben (beim Blättern sieht man mit, wo man ist)
       for (const st of fotoStapel) { const i = st.es.indexOf(cardE); if (i > 0) st.es.unshift(...st.es.splice(i, 1)); }
       for (const st of fotoStapel) st.box = [st.x - 32, st.y - 78, st.x + 36, st.y - 10];
@@ -696,10 +699,27 @@ export async function startGlobus(cfg = {}) {
   function select(e, spin) { active = e; openCard(e); if (spin) { flyTo(e, 3000, true, false, 1); setTimeout(() => { if (cardE === e) focusCountry(e); }, 3000); } else focusCountry(e); }
   // Stapel: mehrere Einträge an (fast) derselben Stelle. Die Postkarte zeigt „‹ 1 / 4 ›“, Wischen oder ‹ › blättert.
   let kartenStapel = null; // { es: [Einträge, neueste zuerst], i: aktuelle Nummer }
-  function openCard(e, richtung) {
-    if (kartenStapel && !kartenStapel.es.includes(e)) kartenStapel = null; // andere Postkarte → Stapel vergessen
+  function stapelZeigen() {
     $('#pcStapel').hidden = !kartenStapel; pc.classList.toggle('stapel', !!kartenStapel);
     if (kartenStapel) $('#pcNr').textContent = `${kartenStapel.i + 1} / ${kartenStapel.es.length}`;
+  }
+  // Alle Einträge (ohne Zuhause), deren Pin höchstens r Pixel von (x, y) entfernt ist – wie beim Tippen auf einen Stapel
+  function stapelUm(x, y, r) {
+    const center = [-rot[0], -rot[1]];
+    return ENTRIES.filter((e) => { if (e.zuhause || geoDistance([e.lon, e.lat], center) > 1.5) return false; const [px, py] = proj([e.lon, e.lat]); return Math.hypot(px - x, py - y) < r; });
+  }
+  // Stapel zur offenen Postkarte nachträglich bilden (aus fotoLayout, also erst nach dem Flug in der Nahansicht):
+  // liegt sie in einem Fotostapel, gilt dieser (gleiche Rechnung wie beim Tippen); ohne Foto die Einträge am selben Ort (unter 2 km)
+  function stapelNachtragen() {
+    const [x, y] = proj([cardE.lon, cardE.lat]);
+    const st = fotoStapel.find((g) => g.es.includes(cardE)) || fotoStapel.find((g) => Math.hypot(g.x - x, g.y - y) < 72);
+    const es = st ? stapelUm(st.x, st.y, 72) : ENTRIES.filter((e) => !e.zuhause && geoDistance([e.lon, e.lat], [cardE.lon, cardE.lat]) * EARTH < 2);
+    if (es.length > 1 && es.includes(cardE)) { kartenStapel = { es, i: es.indexOf(cardE) }; stapelZeigen(); }
+  }
+  function openCard(e, richtung) {
+    // andere Postkarte → Stapel vergessen; Karte aus demselben Stapel (z. B. über „Alle Einträge“) → Nummer nachführen
+    if (kartenStapel) { const i = kartenStapel.es.indexOf(e); if (i < 0) kartenStapel = null; else kartenStapel.i = i; }
+    stapelZeigen();
     cardE = e; pc.classList.remove('heim'); $('#pcImgLink').hidden = false; document.body.classList.add('karte-offen');
     $('#pcImg').src = e.bild || ''; $('#pcImg').alt = `Titelbild: ${e.ort}`; $('#pcImg').hidden = !e.bild;
     const art = e === ENTRIES[0] ? 'Neuester Eintrag' : vorEinemJahr.includes(e) ? 'Heute vor einem Jahr' : 'Eintrag';
@@ -714,8 +734,7 @@ export async function startGlobus(cfg = {}) {
   }
   // Stapel öffnen: alle Einträge (ohne Zuhause), deren Pin höchstens r Pixel von (x, y) entfernt ist
   function stapelOeffnen(x, y, r) {
-    const center = [-rot[0], -rot[1]];
-    const es = ENTRIES.filter((e) => { if (e.zuhause || geoDistance([e.lon, e.lat], center) > 1.5) return false; const [px, py] = proj([e.lon, e.lat]); return Math.hypot(px - x, py - y) < r; });
+    const es = stapelUm(x, y, r);
     if (!es.length) return; kartenStapel = es.length > 1 ? { es, i: 0 } : null; select(es[0]);
   }
   // Im Stapel blättern: Globus dreht sanft zum Eintrag, der Zoom bleibt
