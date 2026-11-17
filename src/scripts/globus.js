@@ -523,24 +523,37 @@ export async function startGlobus(cfg = {}) {
   let km = 0; for (const [a, b] of routeSegsLL) km += geoDistance(a, b) * EARTH; // nur Strecken innerhalb von Reisen
   const pct = (exploredArea() / (4 * Math.PI * EARTH * EARTH)) * 100;
   $('#stats').innerHTML = `<span><b>${ENTRIES.length}</b> ${ENTRIES.length === 1 ? 'Ort' : 'Orte'}</span><button class="st-btn" id="ctyBtn" aria-expanded="false" aria-controls="ctyPop"><b>${VISITED.length}</b> ${VISITED.length === 1 ? 'Land' : 'Länder'}</button><span${km > 0 ? '' : ' hidden'}><b>${Math.round(km).toLocaleString('de-DE')} km</b> unterwegs</span><span><b>${pct.toLocaleString('de-DE', { maximumFractionDigits: 2 })} %</b> der Welt entdeckt</span>`;
-  // Liste: Reisen als Gruppe mit ihren Stationen (1, 2, 3 …), dazwischen einzelne Tagebuch-Einträge; neueste zuerst
-  const eintragLi = (e, nr) => `<li><button data-id="${esc(e.id)}"><span>${nr ? `<span class="d">${e.nr}.</span> ` : ''}${esc(e.ort)}<span class="d"> · ${esc(e.land)}</span></span><span class="d">${esc(e.datum)}</span></button></li>`;
-  const gruppen = []; for (const e of ENTRIES) { const r = e.reise != null ? REISEN[RIDX[e.reise]] : null; if (!r) gruppen.push({ e }); else if (!gruppen.some((g) => g.r === r)) gruppen.push({ r }); }
-  $('#entryList').innerHTML = gruppen.map((g) => (g.e ? eintragLi(g.e, false) : `<li class="trip"><p class="trip-h"><span>✈ ${esc(g.r.titel)}</span><span class="d">${esc(g.r.zeitraum)} · ${g.r.st.length} ${g.r.st.length === 1 ? 'Station' : 'Stationen'}</span></p><ul>${g.r.st.map((e) => eintragLi(e, true)).join('')}</ul></li>`)).join('');
-  $('#entryList').addEventListener('click', (ev) => { const b = ev.target.closest('button'); if (!b) return; select(EBY[b.dataset.id]); $('#entryPop').hidden = true; $('#listBtn').setAttribute('aria-expanded', 'false'); });
-  $('#listBtn').onclick = () => { const p = $('#entryPop'); p.hidden = !p.hidden; $('#listBtn').setAttribute('aria-expanded', String(!p.hidden)); };
-  $('#skipList').onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); $('#entryPop').hidden = false; $('#listBtn').setAttribute('aria-expanded', 'true'); $('#entryList button')?.focus(); };
+  // Archiv: nach Jahr und Monat, neueste zuerst; Stationen stehen in ihrem Monat mit Reise-Hinweis
+  const MONATE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+  const nachJahr = new Map();
+  for (const e of [...ENTRIES].sort((a, b) => (a.iso < b.iso ? 1 : a.iso > b.iso ? -1 : 0))) {
+    const [j, m] = e.iso.split('-'); if (!nachJahr.has(j)) nachJahr.set(j, new Map());
+    const mm = nachJahr.get(j); if (!mm.has(m)) mm.set(m, []); mm.get(m).push(e);
+  }
+  const arEintrag = (e) => { const r = e.reise != null ? REISEN[RIDX[e.reise]] : null;
+    return `<li><button data-id="${esc(e.id)}"><span class="ar-tag">${Number(e.iso.slice(8, 10))}.</span><span class="ar-txt"><b>${esc(e.titel)}</b><span class="d">${esc(e.ort)} · ${esc(e.land)}${r ? ` · <span class="ar-reise">✈ Reise · ${esc(r.titel)}</span>` : ''}</span></span></button></li>`; };
+  $('#arJahre').innerHTML = nachJahr.size > 1 ? [...nachJahr.keys()].map((j) => `<a href="#ar-${j}">${j}</a>`).join('') : '';
+  $('#entryList').innerHTML = [...nachJahr].map(([j, mm]) => { const n = [...mm.values()].reduce((a, l) => a + l.length, 0);
+    return `<section class="ar-jahr" id="ar-${j}"><h3>${j} <span class="d">${n} ${n === 1 ? 'Eintrag' : 'Einträge'}</span></h3>${[...mm].map(([m, l]) => `<h4>${MONATE[Number(m) - 1]}</h4><ul>${l.map(arEintrag).join('')}</ul>`).join('')}</section>`; }).join('');
+  const archiv = $('#archiv'); let arVon = null;
+  function archivAuf() { arVon = document.activeElement; archiv.hidden = false; document.body.classList.add('dim'); $('#listBtn').setAttribute('aria-expanded', 'true'); archiv.querySelector('.archiv-blatt').scrollTop = 0; $('#entryList button[aria-current="true"]')?.scrollIntoView({ block: 'center' }); ($('#entryList button[aria-current="true"]') || $('#arClose')).focus(); }
+  function archivZu(fokusZurueck = true) { if (archiv.hidden) return; archiv.hidden = true; document.body.classList.remove('dim'); $('#listBtn').setAttribute('aria-expanded', 'false'); if (fokusZurueck) arVon?.focus?.(); }
+  $('#entryList').addEventListener('click', (ev) => { const b = ev.target.closest('button'); if (!b) return; archivZu(false); select(EBY[b.dataset.id]); });
+  $('#arJahre').addEventListener('click', (ev) => { const a = ev.target.closest('a'); if (!a) return; ev.preventDefault(); $(a.getAttribute('href'))?.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+  $('#listBtn').onclick = () => (archiv.hidden ? archivAuf() : archivZu());
+  $('#arClose').onclick = () => archivZu();
+  archiv.addEventListener('click', (ev) => { if (ev.target === archiv) archivZu(); });
+  $('#skipList').onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); archivAuf(); };
   function renderCty() {
     const rows = VISITED.map((id) => ({ id, n: CNAME[id], st: countryStat(id) })).sort((a, b) => b.st.pct - a.st.pct);
     $('#ctyList').innerHTML = `<li class="sep">Fog of War pro Land</li>` + rows.map((r) => `<li><button class="cty" data-c="${r.id}"><span>${esc(r.n)}</span><span class="cm"><i style="width:${Math.max(2, r.st.pct)}%"></i></span><span class="d">${fmtPct(r.st.pct)} %</span></button></li>`).join('');
   }
   $('#ctyList').addEventListener('click', (ev) => { const b = ev.target.closest('[data-c]'); if (!b) return; const e = ENTRIES.find((x) => x.cid === b.dataset.c); $('#ctyPop').hidden = true; if (e) select(e); });
   document.addEventListener('click', (ev) => {
-    if (ev.target.closest('#ctyBtn')) { const p = $('#ctyPop'); if (p.hidden) renderCty(); p.hidden = !p.hidden; $('#ctyBtn').setAttribute('aria-expanded', String(!p.hidden)); $('#entryPop').hidden = true; return; }
+    if (ev.target.closest('#ctyBtn')) { const p = $('#ctyPop'); if (p.hidden) renderCty(); p.hidden = !p.hidden; $('#ctyBtn').setAttribute('aria-expanded', String(!p.hidden)); return; }
     if (!ev.target.closest('#ctyPop')) $('#ctyPop').hidden = true;
-    if (!ev.target.closest('#entryPop,#listBtn,#skipList')) { $('#entryPop').hidden = true; $('#listBtn').setAttribute('aria-expanded', 'false'); }
   });
-  addEventListener('keydown', (ev) => { if (ev.key !== 'Escape') return; if (letterPoem !== null) return closeLetter(); if (!$('#entryPop').hidden) { $('#entryPop').hidden = true; return; } closeCard(); });
+  addEventListener('keydown', (ev) => { if (ev.key !== 'Escape') return; if (letterPoem !== null) return closeLetter(); if (!archiv.hidden) return archivZu(); closeCard(); });
   // Heute vor einem Jahr (bzw. vor mehreren Jahren)
   const heute = new Date(), md = `${String(heute.getMonth() + 1).padStart(2, '0')}-${String(heute.getDate()).padStart(2, '0')}`;
   const vorEinemJahr = ENTRIES.filter((e) => e.iso.slice(5) === md && Number(e.iso.slice(0, 4)) < heute.getFullYear());

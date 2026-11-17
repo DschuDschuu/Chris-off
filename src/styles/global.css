@@ -71,11 +71,6 @@ body.has-player .dock{bottom:calc(104px + env(safe-area-inset-bottom,0px))}
 .pop button{width:100%;display:flex;justify-content:space-between;gap:10px;background:none;border:0;border-radius:8px;padding:8px 10px;text-align:left;font-size:15px}
 .pop button:hover,.pop button[aria-current="true"]{background:rgba(28,36,51,.06)}
 .pop .d{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);white-space:nowrap}
-/* Eintragsliste: Reisen als Gruppe mit Stationen; lange Listen scrollen, Impressum-Links bleiben sichtbar */
-#entryList{max-height:min(56vh,480px);overflow-y:auto;overscroll-behavior:contain}
-.pop .trip-h{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:2px 10px;margin:6px 0 2px;padding:6px 10px 2px;font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--amber)}
-.pop .trip-h .d{letter-spacing:0;text-transform:none}
-.pop .trip ul{margin-left:14px;padding-left:4px;border-left:2px dotted rgba(207,111,16,.45)}
 .reise-zeile{margin:6px 0 0;font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--amber)}
 .postcard{position:fixed;left:0;top:0;z-index:9;width:450px;max-width:calc(100vw - 24px);box-sizing:border-box;padding:10px;border-radius:4px;
   background:repeating-linear-gradient(-45deg,#d0292f 0 11px,#fbf8f1 11px 22px,#1d3f9a 22px 33px,#fbf8f1 33px 44px);box-shadow:0 20px 46px rgba(20,30,50,.3);
@@ -355,3 +350,24 @@ body.start .toast{top:auto;bottom:calc(128px + env(safe-area-inset-bottom,0px))}
   .pc-in{grid-template-columns:96px minmax(0,1fr);gap:10px}.pc-img{width:96px;height:118px}
   .pc-ex{display:none!important}.pc-body h2{font-size:19px}.pc-btn{font-size:13px;padding:5px 10px}
 }
+
+/* Archiv aller Einträge (Dialog im Briefbogen-Look wie der Artikel) */
+.archiv{position:fixed;inset:0;z-index:40;background:rgba(232,238,246,.55);backdrop-filter:blur(3px);
+  padding-left:max(16px, env(safe-area-inset-left,0px));padding-right:max(16px, env(safe-area-inset-right,0px))}
+.archiv-blatt{box-sizing:border-box;height:100%;min-height:0;overflow-y:auto;overscroll-behavior:contain;background:var(--panel-solid);backdrop-filter:none;padding-bottom:60px}
+.archiv-blatt h2{font-family:var(--f-display);font-weight:400;font-size:26px;margin:0}
+.ar-jahre{display:flex;flex-wrap:wrap;gap:6px;margin:18px 0 4px}
+.ar-jahre a{font-family:var(--f-mono);font-size:12.5px;color:var(--ink);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:4px 12px}
+.ar-jahre a:hover{border-color:var(--ink)}
+.ar-jahr{scroll-margin-top:70px}
+.ar-jahr h3{font-family:var(--f-display);font-weight:400;font-size:clamp(30px,5vw,40px);margin:28px 0 0;display:flex;align-items:baseline;gap:12px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.ar-jahr h3 .d{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.ar-jahr h4{font-family:var(--f-mono);font-weight:500;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--amber);margin:18px 0 4px}
+.ar-jahr ul{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.ar-jahr button{width:100%;display:grid;grid-template-columns:34px minmax(0,1fr);gap:8px;align-items:baseline;background:none;border:0;border-radius:10px;padding:9px 10px;text-align:left;color:var(--ink)}
+.ar-jahr button:hover,.ar-jahr button[aria-current="true"]{background:rgba(28,36,51,.06)}
+.ar-tag{font-family:var(--f-mono);font-size:13px;color:var(--muted);text-align:right}
+.ar-txt{display:grid;gap:2px}
+.ar-txt b{font-family:var(--f-display);font-weight:400;font-size:19px;line-height:1.2}
+.ar-txt .d{font-family:var(--f-mono);font-size:11.5px;color:var(--muted)}
+.ar-reise{color:#c0392b}

@@ -6,16 +6,15 @@ const eintraege = await alleEintraege();
 const neuester = eintraege[0];
 ---
 <Base modus="home" bereich="tagebuch" bild={neuester?.data.titelbild} beschreibung={`${site.untertitel} von ${site.autor}: ${eintraege.length} Orte auf einer Weltkugel.`}>
-  <a href="#entryPop" class="skip" id="skipList">Zur Liste aller Einträge springen</a>
+  <a href="#archiv" class="skip" id="skipList">Zum Archiv aller Einträge springen</a>
 
   <main class="home" id="home">
     <h1 class="sr-only">{site.titel}</h1>
     <div class="dock" id="dock">
       <div class="pop" id="ctyPop" hidden><ul id="ctyList"></ul></div>
-      <div class="pop" id="entryPop" hidden><ul id="entryList"></ul></div>
       <p class="stats" id="stats"></p>
       <div class="dock-btns">
-        <button class="btn sm" id="listBtn" aria-expanded="false" aria-controls="entryPop">📍 <span class="hide-n">Alle </span>Einträge</button>
+        <button class="btn sm" id="listBtn" aria-haspopup="dialog" aria-controls="archiv">📍 <span class="hide-n">Alle </span>Einträge</button>
         <button class="btn sm" id="otdBtn" hidden>📅 Vor <span class="hide-n">einem</span><span class="show-n">1</span> Jahr</button>
         <button class="btn sm" id="randomBtn">🎲 Zufall</button>
       </div>
@@ -34,6 +33,18 @@ const neuester = eintraege[0];
       </section>
     </noscript>
   </main>
+
+  {/* Archiv aller Einträge: Briefbogen wie beim Artikel, nach Jahr und Monat */}
+  <div class="archiv" id="archiv" hidden>
+    <div class="sheet archiv-blatt" role="dialog" aria-modal="true" aria-labelledby="arH">
+      <div class="sheet-bar">
+        <h2 id="arH">Archiv</h2>
+        <button class="btn sm" id="arClose" aria-label="Archiv schließen">✕<span class="hide-n"> Schließen</span></button>
+      </div>
+      <nav class="ar-jahre" id="arJahre" aria-label="Jahre"></nav>
+      <div id="entryList"></div>
+    </div>
+  </div>
 
   <div class="postcard" id="postcard" hidden role="dialog" aria-labelledby="pcTitle">
     <button class="pc-x" id="pcClose" aria-label="Postkarte schließen">✕</button>
