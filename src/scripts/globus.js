@@ -11,6 +11,9 @@ export async function startGlobus(cfg = {}) {
   const DATA = JSON.parse($('#tb-daten').textContent);
   const ENTRIES = DATA.eintraege, POEMS = DATA.gedichte;
   const EBY = Object.fromEntries(ENTRIES.map((e) => [e.id, e]));
+  // Zuhause: Einträge „von zuhause“ teilen sich einen Haus-Pin statt vieler Pins an einer Stelle
+  const HOME = DATA.zuhause || null, HEIM = ENTRIES.filter((e) => e.zuhause);
+  let hoverHome = false;
   // Reisen: Stationen in Reihenfolge (Station 1 = erste). Einträge ohne Reise sind Tagebuch.
   const REISEN = (DATA.reisen || []).map((r) => ({ ...r, st: r.stationen.map((id) => EBY[id]).filter(Boolean) })).filter((r) => r.st.length);
   const RIDX = Object.fromEntries(REISEN.map((r, i) => [r.id, i]));
@@ -386,8 +389,9 @@ export async function startGlobus(cfg = {}) {
     if (G.shade) { const sh = ctx.createRadialGradient(cx - Rr * 0.4, cy - Rr * 0.45, Rr * 0.2, cx, cy, Rr * 1.02); sh.addColorStop(0, G.shade[0]); sh.addColorStop(0.7, G.shade[1]); sh.addColorStop(1, G.shade[2]); ctx.beginPath(); path({ type: 'Sphere' }); ctx.fillStyle = sh; ctx.fill(); }
     if (G.rim) { ctx.beginPath(); path({ type: 'Sphere' }); ctx.strokeStyle = G.rim; ctx.lineWidth = 1.4; ctx.stroke(); if (gstyle === 'vintage') { ctx.beginPath(); ctx.arc(cx, cy, Rr + 7, 0, 7); ctx.lineWidth = 0.8; ctx.stroke(); } }
     drawSteps(now, G, Rr, center);
+    if (HOME && HEIM.length && geoDistance([HOME.lon, HOME.lat], center) < 1.5) drawHome(now);
     for (const e of ENTRIES) {
-      if (geoDistance([e.lon, e.lat], center) > 1.5) continue; const [x, y] = proj([e.lon, e.lat]); const isA = e === active;
+      if (e.zuhause || geoDistance([e.lon, e.lat], center) > 1.5) continue; const [x, y] = proj([e.lon, e.lat]); const isA = e === active;
       if (isA) { const p = (now % 1800) / 1800; ctx.beginPath(); ctx.arc(x, y, 6 + p * 22, 0, 7); ctx.strokeStyle = `rgba(242,165,65,${1 - p})`; ctx.lineWidth = 2; ctx.stroke(); }
       ctx.beginPath(); ctx.arc(x, y, isA ? 6 : 4, 0, 7); ctx.fillStyle = isA ? '#ec8a1e' : '#ffffff'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#1c2433'; ctx.stroke();
       if (modus === 'home' && ((e === hoverE && e !== cardE) || (isA && !fly && !cardE))) { ctx.font = '500 12px "IBM Plex Mono", monospace'; ctx.fillStyle = '#1c2433'; const hv = e === hoverE; ctx.textAlign = hv ? 'left' : 'right'; ctx.fillText(e.ort.toUpperCase(), hv ? x + 12 : x - 14, y + 4); ctx.textAlign = 'left'; }
@@ -442,11 +446,21 @@ export async function startGlobus(cfg = {}) {
   if (modus !== 'home') return;
 
   /* ================= Bedienung (nur Startseite) ================= */
-  function pinAt(px, py, rad) { const center = [-rot[0], -rot[1]]; let best = null, bd = rad; for (const e of ENTRIES) { if (geoDistance([e.lon, e.lat], center) > 1.5) continue; const [x, y] = proj([e.lon, e.lat]), d = Math.hypot(px - x, py - y); if (d < bd) { bd = d; best = e; } } return best; }
-  function pinsNear(px, py, rad) { const center = [-rot[0], -rot[1]]; return ENTRIES.filter((e) => { if (geoDistance([e.lon, e.lat], center) > 1.5) return false; const [x, y] = proj([e.lon, e.lat]); return Math.hypot(px - x, py - y) < rad; }); }
+  // Haus-Pin fürs Zuhause: kleines Haus, orange wenn ein Zuhause-Eintrag oder die Zuhause-Karte offen ist
+  function drawHome(now) {
+    const [x, y] = proj([HOME.lon, HOME.lat]), an = (active && active.zuhause) || (cardE && cardE.heim);
+    if (an) { const p = (now % 1800) / 1800; ctx.beginPath(); ctx.arc(x, y - 2, 8 + p * 22, 0, 7); ctx.strokeStyle = `rgba(242,165,65,${1 - p})`; ctx.lineWidth = 2; ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(x - 8, y - 1); ctx.lineTo(x, y - 9); ctx.lineTo(x + 8, y - 1); ctx.lineTo(x + 6, y - 1); ctx.lineTo(x + 6, y + 7); ctx.lineTo(x - 6, y + 7); ctx.lineTo(x - 6, y - 1); ctx.closePath();
+    ctx.fillStyle = an ? '#ec8a1e' : '#ffffff'; ctx.fill(); ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1c2433'; ctx.stroke();
+    if (modus === 'home' && (hoverHome || (an && !fly && !cardE))) { ctx.font = '500 12px "IBM Plex Mono", monospace'; ctx.fillStyle = '#1c2433'; ctx.fillText('ZUHAUSE · ' + HOME.ort.toUpperCase(), x + 14, y + 4); }
+  }
+  function homeAt(px, py, rad) { if (!HOME || !HEIM.length || geoDistance([HOME.lon, HOME.lat], [-rot[0], -rot[1]]) > 1.5) return false; const [x, y] = proj([HOME.lon, HOME.lat]); return Math.hypot(px - x, py - y + 1) < rad; }
+  function pinAt(px, py, rad) { const center = [-rot[0], -rot[1]]; let best = null, bd = rad; for (const e of ENTRIES) { if (e.zuhause || geoDistance([e.lon, e.lat], center) > 1.5) continue; const [x, y] = proj([e.lon, e.lat]), d = Math.hypot(px - x, py - y); if (d < bd) { bd = d; best = e; } } return best; }
+  function pinsNear(px, py, rad) { const center = [-rot[0], -rot[1]]; return ENTRIES.filter((e) => { if (e.zuhause || geoDistance([e.lon, e.lat], center) > 1.5) return false; const [x, y] = proj([e.lon, e.lat]); return Math.hypot(px - x, py - y) < rad; }); }
   cv.addEventListener('click', (ev) => {
     if (dragMoved) { dragMoved = false; return; }
     const pi = poemAt(ev.clientX, ev.clientY, 12); if (pi !== null) { const q = poemPos.find((q) => q.i === pi); openLetter(pi, q ? [q.x, q.y] : null); return; }
+    if (homeAt(ev.clientX, ev.clientY, 16)) { openHome(); return; }
     const near = pinsNear(ev.clientX, ev.clientY, 24);
     if (near.length >= 2 && zoom < MAXZ * 0.9) { const c = near.reduce((a, e) => [a[0] + e.lon / near.length, a[1] + e.lat / near.length], [0, 0]); flyTo({ lon: c[0], lat: c[1] }, 1000, false, true, Math.min(MAXZ, zoom * 2.4)); toast('Mehrere Orte liegen hier dicht beieinander, herangezoomt.'); return; }
     const hit = pinAt(ev.clientX, ev.clientY, 22); if (hit) { select(hit); return; }
@@ -460,7 +474,7 @@ export async function startGlobus(cfg = {}) {
   });
   cv.addEventListener('pointermove', (ev) => {
     lastMouse = [ev.clientX, ev.clientY];
-    if (!ptrs.has(ev.pointerId)) { hoverPoem = poemAt(ev.clientX, ev.clientY, 12); const f = hoverPoem === null ? pinAt(ev.clientX, ev.clientY, 18) : null; hoverE = f; cv.style.cursor = f || hoverPoem !== null ? 'pointer' : ''; return; }
+    if (!ptrs.has(ev.pointerId)) { hoverPoem = poemAt(ev.clientX, ev.clientY, 12); hoverHome = hoverPoem === null && homeAt(ev.clientX, ev.clientY, 16); const f = hoverPoem === null && !hoverHome ? pinAt(ev.clientX, ev.clientY, 18) : null; hoverE = f; cv.style.cursor = f || hoverHome || hoverPoem !== null ? 'pointer' : ''; return; }
     ptrs.set(ev.pointerId, [ev.clientX, ev.clientY]);
     if (pinch && ptrs.size === 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (d > 0) setZoom((pinch.z * d) / pinch.d); dragMoved = true; return; }
     if (drag) {
@@ -471,7 +485,7 @@ export async function startGlobus(cfg = {}) {
   });
   function endPtr(ev) { ptrs.delete(ev.pointerId); if (ptrs.size < 2) pinch = null; if (ptrs.size === 0) { if (drag && performance.now() - drag.t > 90) vel = [0, 0]; drag = null; cv.classList.remove('dragging'); } }
   cv.addEventListener('pointerup', endPtr); cv.addEventListener('pointercancel', endPtr);
-  cv.addEventListener('mouseleave', () => { hoverE = null; hoverPoem = null; lastMouse = null; });
+  cv.addEventListener('mouseleave', () => { hoverE = null; hoverHome = false; hoverPoem = null; lastMouse = null; });
   cv.addEventListener('wheel', (ev) => { ev.preventDefault(); setZoom(zoom * Math.exp(-ev.deltaY * 0.0015)); }, { passive: false });
   $('#zIn').onclick = () => setZoom(zoom * 1.5); $('#zOut').onclick = () => setZoom(zoom / 1.5);
   $('#zReset').onclick = () => { const a = cardE || active; closeCard(true); vel = [0, 0]; flyTo(a, 1300, false, false, 1); };
@@ -488,7 +502,7 @@ export async function startGlobus(cfg = {}) {
   const esc = (s = '') => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   function select(e, spin) { active = e; openCard(e); if (spin) { flyTo(e, 3000, true, false, 1); setTimeout(() => { if (cardE === e) focusCountry(e); }, 3000); } else focusCountry(e); }
   function openCard(e) {
-    cardE = e;
+    cardE = e; pc.classList.remove('heim'); $('#pcImgLink').hidden = false;
     $('#pcImg').src = e.bild || ''; $('#pcImg').alt = `Titelbild: ${e.ort}`; $('#pcImg').hidden = !e.bild;
     const art = e === ENTRIES[0] ? 'Neuester Eintrag' : vorEinemJahr.includes(e) ? 'Heute vor einem Jahr' : 'Eintrag';
     $('#pcEyebrow').textContent = e.reiseTitel ? (art === 'Eintrag' ? `Reise · ${e.reiseTitel}` : `${art} · Reise ${e.reiseTitel}`) : art;
@@ -498,6 +512,17 @@ export async function startGlobus(cfg = {}) {
     pc.hidden = false; pc.classList.add('away'); pc.classList.remove('pop-in'); void pc.offsetWidth; pc.classList.add('pop-in');
     document.querySelectorAll('#entryList button').forEach((b) => b.setAttribute('aria-current', String(b.dataset.id === e.id)));
   }
+  // Zuhause-Karte: dieselbe Postkarte, aber ohne Bild und mit der Liste der Einträge von zuhause (neueste zuerst)
+  function openHome() {
+    active = null; cardE = { heim: true, lon: HOME.lon, lat: HOME.lat }; pc.classList.add('heim'); $('#pcImgLink').hidden = true;
+    $('#pcEyebrow').textContent = 'Zuhause'; $('#pcTitle').textContent = HOME.ort;
+    $('#pcMeta').textContent = `${HOME.land} · ${HEIM.length} ${HEIM.length === 1 ? 'Eintrag' : 'Einträge'} von zuhause`; $('#pcEx').hidden = true; $('#pcPm').textContent = HOME.ort.toUpperCase();
+    $('#pcActions').innerHTML = `<ul class="heim-liste">${HEIM.map((e) => `<li><button data-id="${esc(e.id)}"><b>${esc(e.titel)}</b><span class="d">${esc(e.datum)}</span></button></li>`).join('')}</ul>`;
+    pc.hidden = false; pc.classList.add('away'); pc.classList.remove('pop-in'); void pc.offsetWidth; pc.classList.add('pop-in');
+    focusC = null; ortZoom = true; $('#cbar').hidden = true;
+    flyTo(HOME, 1600, false, true, Math.max(1.5, Math.min(MAXZ, zoomFuerKm(ORT_KM * 3))));
+  }
+  $('#pcActions').addEventListener('click', (ev) => { const b = ev.target.closest('.heim-liste button'); if (b) select(EBY[b.dataset.id]); });
   function closeCard(keepView) { cardE = null; pc.hidden = true; if (focusC || ortZoom) { focusC = null; ortZoom = false; $('#cbar').hidden = true; if (!keepView) flyTo({ lon: -rot[0], lat: -rot[1] }, 1200, false, true, 1); } }
   $('#pcClose').onclick = () => closeCard();
 
@@ -522,7 +547,8 @@ export async function startGlobus(cfg = {}) {
   /* ---------- Leiste unten: Statistik, Listen, Extras ---------- */
   let km = 0; for (const [a, b] of routeSegsLL) km += geoDistance(a, b) * EARTH; // nur Strecken innerhalb von Reisen
   const pct = (exploredArea() / (4 * Math.PI * EARTH * EARTH)) * 100;
-  $('#stats').innerHTML = `<span><b>${ENTRIES.length}</b> ${ENTRIES.length === 1 ? 'Ort' : 'Orte'}</span><button class="st-btn" id="ctyBtn" aria-expanded="false" aria-controls="ctyPop"><b>${VISITED.length}</b> ${VISITED.length === 1 ? 'Land' : 'Länder'}</button><span${km > 0 ? '' : ' hidden'}><b>${Math.round(km).toLocaleString('de-DE')} km</b> unterwegs</span><span><b>${pct.toLocaleString('de-DE', { maximumFractionDigits: 2 })} %</b> der Welt entdeckt</span>`;
+  const orte = ENTRIES.length - HEIM.length + (HEIM.length ? 1 : 0); // Zuhause zählt als ein Ort
+  $('#stats').innerHTML = `<span><b>${orte}</b> ${orte === 1 ? 'Ort' : 'Orte'}</span><button class="st-btn" id="ctyBtn" aria-expanded="false" aria-controls="ctyPop"><b>${VISITED.length}</b> ${VISITED.length === 1 ? 'Land' : 'Länder'}</button><span${km > 0 ? '' : ' hidden'}><b>${Math.round(km).toLocaleString('de-DE')} km</b> unterwegs</span><span><b>${pct.toLocaleString('de-DE', { maximumFractionDigits: 2 })} %</b> der Welt entdeckt</span>`;
   // Archiv: nach Jahr und Monat, neueste zuerst; Stationen stehen in ihrem Monat mit Reise-Hinweis
   const MONATE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
   const nachJahr = new Map();
@@ -531,7 +557,7 @@ export async function startGlobus(cfg = {}) {
     const mm = nachJahr.get(j); if (!mm.has(m)) mm.set(m, []); mm.get(m).push(e);
   }
   const arEintrag = (e) => { const r = e.reise != null ? REISEN[RIDX[e.reise]] : null;
-    return `<li><button data-id="${esc(e.id)}"><span class="ar-tag">${Number(e.iso.slice(8, 10))}.</span><span class="ar-txt"><b>${esc(e.titel)}</b><span class="d">${esc(e.ort)} · ${esc(e.land)}${r ? ` · <span class="ar-reise">✈ Reise · ${esc(r.titel)}</span>` : ''}</span></span></button></li>`; };
+    return `<li><button data-id="${esc(e.id)}"><span class="ar-tag">${Number(e.iso.slice(8, 10))}.</span><span class="ar-txt"><b>${esc(e.titel)}</b><span class="d">${esc(e.ort)} · ${esc(e.land)}${r ? ` · <span class="ar-reise">✈ Reise · ${esc(r.titel)}</span>` : ''}${e.zuhause ? ' · <span class="ar-heim">⌂ Zuhause</span>' : ''}</span></span></button></li>`; };
   $('#arJahre').innerHTML = nachJahr.size > 1 ? [...nachJahr.keys()].map((j) => `<a href="#ar-${j}">${j}</a>`).join('') : '';
   $('#entryList').innerHTML = [...nachJahr].map(([j, mm]) => { const n = [...mm.values()].reduce((a, l) => a + l.length, 0);
     return `<section class="ar-jahr" id="ar-${j}"><h3>${j} <span class="d">${n} ${n === 1 ? 'Eintrag' : 'Einträge'}</span></h3>${[...mm].map(([m, l]) => `<h4>${MONATE[Number(m) - 1]}</h4><ul>${l.map(arEintrag).join('')}</ul>`).join('')}</section>`; }).join('');

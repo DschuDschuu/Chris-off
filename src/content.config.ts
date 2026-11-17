@@ -37,8 +37,11 @@ const eintraege = defineCollection({
     .object({
       titel: z.string(),
       datum: z.coerce.date(),
-      ort: z.string(),
-      land: z.string(),
+      // Ort, Land und Karte sind Pflicht, außer bei „Von zuhause“: dann kommen sie aus Einstellungen → Zuhause
+      // (eingesetzt in alleEintraege() in src/lib/daten.ts).
+      zuhause: z.boolean().default(false),
+      ort: z.string().optional().nullable(),
+      land: z.string().optional().nullable(),
       ...ortsFelder,
       reise: z.string().optional().nullable(), // Verweis auf eine Reise (Dateiname/Slug), leer = Tagebuch
       // Baukasten: Text, Zwischenüberschrift, Foto, Fotostreifen, Notizzettel, Lied (siehe src/lib/bausteine.ts)
@@ -55,13 +58,14 @@ const eintraege = defineCollection({
     })
     // „Ganz persönlich“ wird hier entfernt und ist dadurch beim Bauen nirgends verfügbar.
     // Der Ort wird auf breite/laenge vereinheitlicht, damit Globus und Seiten nur diese Form kennen.
-    .transform(({ ganz_persoenlich, karte, breite, laenge, ...rest }, ctx) => {
+    .transform(({ ganz_persoenlich, karte, breite, laenge, ort, land, ...rest }, ctx) => {
+      // Platzhalter; alleEintraege() setzt die Werte vom Zuhause ein (oder bricht mit Hinweis ab)
+      if (rest.zuhause) return { ...rest, ort: '', land: '', breite: 0, laenge: 0 };
       const punkt = ortLesen({ karte, breite, laenge });
-      if (!punkt) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Ort fehlt: im Editor bei „Ort auf der Karte“ einen Punkt setzen.' });
-        return z.NEVER;
-      }
-      return { ...rest, breite: punkt[0], laenge: punkt[1] };
+      if (!punkt) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Ort fehlt: im Editor bei „Ort auf der Karte“ einen Punkt setzen (oder „Von zuhause“ ankreuzen).' });
+      if (!ort?.trim() || !land?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Ort oder Land fehlt (oder „Von zuhause“ ankreuzen).' });
+      if (!punkt || !ort?.trim() || !land?.trim()) return z.NEVER;
+      return { ...rest, ort: ort.trim(), land: land.trim(), breite: punkt[0], laenge: punkt[1] };
     }),
 });
 
@@ -106,4 +110,16 @@ const einstellungen = defineCollection({
   }),
 });
 
-export const collections = { eintraege, gedichte, reisen, einstellungen };
+// Zuhause (Editor: Einstellungen → Zuhause). Einträge mit „Von zuhause“ übernehmen Ort, Land und Punkt
+// und erscheinen auf dem Globus gemeinsam als ein Haus-Pin. Genauigkeit wie bei Einträgen (2 Nachkommastellen).
+const zuhause = defineCollection({
+  loader: glob({ pattern: 'zuhause.md', base: `${basis}/einstellungen` }),
+  schema: z
+    .object({ ort: z.string().optional().nullable(), land: z.string().optional().nullable(), ...ortsFelder })
+    .transform(({ karte, breite, laenge, ort, land }) => {
+      const punkt = ortLesen({ karte, breite, laenge });
+      return { ort: ort?.trim() || '', land: land?.trim() || '', breite: punkt?.[0] ?? null, laenge: punkt?.[1] ?? null };
+    }),
+});
+
+export const collections = { eintraege, gedichte, reisen, einstellungen, zuhause };

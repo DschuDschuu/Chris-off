@@ -1,4 +1,4 @@
-import { getCollection } from 'astro:content';
+import { getCollection, getEntry } from 'astro:content';
 import { bausteinText, type Baustein } from './bausteine';
 
 export const datumDE = (d: Date) =>
@@ -34,9 +34,21 @@ export const lesezeit = (body = '') => Math.max(1, Math.round(reinText(body).spl
 export const norm = (s = '') =>
   String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\.md$/, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
+// Zuhause aus den Einstellungen, oder null, wenn keins (vollständig) angegeben ist
+export async function zuhause() {
+  const d = (await getEntry('zuhause', 'zuhause'))?.data;
+  if (!d || !d.ort || !d.land || d.breite == null || d.laenge == null) return null;
+  return { ort: d.ort, land: d.land, breite: d.breite, laenge: d.laenge };
+}
+
+// Alle veröffentlichten Einträge, neueste zuerst. Einträge „Von zuhause“ bekommen hier Ort, Land und Punkt vom Zuhause.
 export async function alleEintraege() {
-  const a = await getCollection('eintraege', (e) => !e.data.entwurf);
-  return a.sort((x, y) => y.data.datum.getTime() - x.data.datum.getTime());
+  const [a, heim] = await Promise.all([getCollection('eintraege', (e) => !e.data.entwurf), zuhause()]);
+  const ohneHeim = a.filter((e) => e.data.zuhause && !heim).map((e) => e.id);
+  if (ohneHeim.length) throw new Error(`„Von zuhause“ angekreuzt, aber im Editor unter Einstellungen → Zuhause fehlt Ort, Land oder Punkt auf der Karte (betrifft: ${ohneHeim.join(', ')}).`);
+  return a
+    .map((e) => (e.data.zuhause && heim ? { ...e, data: { ...e.data, ort: heim.ort, land: heim.land, breite: heim.breite, laenge: heim.laenge } } : e))
+    .sort((x, y) => y.data.datum.getTime() - x.data.datum.getTime());
 }
 
 export async function alleGedichte() {
@@ -102,6 +114,7 @@ export async function globusDaten() {
     iso: e.data.datum.toISOString().slice(0, 10),
     bild: e.data.titelbild || e.data.galerie[0]?.bild || null,
     auszug: auszug(textVon(e), 120),
+    zuhause: e.data.zuhause,
     musik: e.data.lieder.length > 0 || e.data.inhalt.some((b) => b.type === 'lied' && typeof b.link === 'string' && b.link.trim() !== ''),
     url: `/${e.id}/`,
   }));
@@ -121,7 +134,9 @@ export async function globusDaten() {
   }).filter((g) => Number.isFinite(g.lat) && Number.isFinite(g.lon));
   // Reisen: Titel, Zeitraum und die Stationen in Reihenfolge (nur IDs, Rest steht bei den Einträgen)
   const reisen = R.map((r) => ({ id: r.id, titel: r.titel, zeitraum: r.zeitraum, stationen: r.stationen.map((s) => s.id) }));
-  return { eintraege, gedichte, reisen };
+  // Zuhause nur, wenn es Einträge von dort gibt (sonst kein Haus-Pin)
+  const heim = eintraege.some((e) => e.zuhause) ? await zuhause() : null;
+  return { eintraege, gedichte, reisen, zuhause: heim && { ort: heim.ort, land: heim.land, lat: heim.breite, lon: heim.laenge } };
 }
 
 // JSON sicher in <script type="application/json"> einbetten

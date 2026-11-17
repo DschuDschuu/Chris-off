@@ -371,3 +371,12 @@ body.start .toast{top:auto;bottom:calc(128px + env(safe-area-inset-bottom,0px))}
 .ar-txt b{font-family:var(--f-display);font-weight:400;font-size:19px;line-height:1.2}
 .ar-txt .d{font-family:var(--f-mono);font-size:11.5px;color:var(--muted)}
 .ar-reise{color:#c0392b}
+
+/* Zuhause: Postkarte ohne Bild, mit Liste der Einträge von zuhause */
+.postcard.heim .pc-in{grid-template-columns:minmax(0,1fr)}
+.heim-liste{list-style:none;margin:0;padding:0;width:100%;display:grid;gap:2px;max-height:min(240px,40vh);overflow-y:auto;overscroll-behavior:contain}
+.heim-liste button{width:100%;display:flex;justify-content:space-between;align-items:baseline;gap:10px;background:none;border:0;border-radius:8px;padding:7px 8px;text-align:left;color:#16295e}
+.heim-liste button:hover{background:rgba(29,63,154,.07)}
+.heim-liste b{font-family:var(--f-display);font-weight:400;font-size:17px;line-height:1.2}
+.heim-liste .d{font-family:var(--f-mono);font-size:11px;color:var(--muted);white-space:nowrap}
+.ar-heim{color:#1d3f9a}
