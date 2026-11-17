@@ -31,9 +31,24 @@ async function exists(p) { try { await fs.access(p); return true; } catch { retu
 
 // 1. Kartendaten
 await fs.mkdir(path.join(pub, 'data'), { recursive: true });
-// countries-10m: genaue Küsten, lädt der Globus erst beim nahen Zoom nach
-for (const f of ['countries-110m.json', 'countries-50m.json', 'countries-10m.json']) {
+for (const f of ['countries-110m.json', 'countries-50m.json']) {
   await fs.copyFile(path.join(root, 'node_modules/world-atlas', f), path.join(pub, 'data', f));
+}
+
+// Genaue Küsten (10m) als eine kleine Datei pro Land: der Globus lädt beim nahen Zoom nur die Länder im Bild
+// (z. B. Spanien ca. 13 KB statt ca. 1 MB für die ganze Welt). 3 Nachkommastellen ≈ 100 m, genauer ist 10m ohnehin nicht.
+// Gebiete ohne Länder-ID (z. B. Kosovo) bekommen keine Datei, dort bleibt die 50m-Form.
+{
+  const { feature } = await import('topojson-client');
+  const t = JSON.parse(await fs.readFile(path.join(root, 'node_modules/world-atlas/countries-10m.json'), 'utf8'));
+  const ordner = path.join(pub, 'data', 'land10');
+  await fs.rm(ordner, { recursive: true, force: true });
+  await fs.mkdir(ordner, { recursive: true });
+  const runden = (a) => (typeof a[0] === 'number' ? [+a[0].toFixed(3), +a[1].toFixed(3)] : a.map(runden));
+  for (const f of feature(t, t.objects.countries).features) {
+    if (f.id == null) continue;
+    await fs.writeFile(path.join(ordner, `${f.id}.json`), JSON.stringify({ type: 'Feature', id: f.id, geometry: { type: f.geometry.type, coordinates: runden(f.geometry.coordinates) } }));
+  }
 }
 
 // Ortsnamen rund um veröffentlichte Einträge (40 km, Nebel ist nur 25 km um jeden Ort frei). Entwürfe zählen
