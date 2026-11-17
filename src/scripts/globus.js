@@ -25,7 +25,7 @@ export async function startGlobus(cfg = {}) {
   const toast = (msg) => { if (!toastEl) return; toastEl.textContent = msg; toastEl.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (toastEl.hidden = true), 3200); };
 
   const TOPO = await (await fetch('/data/countries-110m.json')).json();
-  let TOPO50 = null;
+  let TOPO50 = null, TOPO10 = null, ORTE = null; // 50m im Stillstand, 10m und Ortsnamen erst beim nahen Zoom
 
   /* ---------- Karten-Grundlagen ---------- */
   const land = feature(TOPO, TOPO.objects.land), borders = mesh(TOPO, TOPO.objects.countries, (a, b) => a !== b);
@@ -169,16 +169,68 @@ export async function startGlobus(cfg = {}) {
   }
 
   /* ---------- Feine Karte (wird nachgeladen) ---------- */
-  let L50 = null, C50meta = null;
+  let L50 = null, L10 = null;
   function lod50() {
     if (!TOPO50) return null;
     if (!L50) { const cs = feature(TOPO50, TOPO50.objects.countries).features; L50 = { land: feature(TOPO50, TOPO50.objects.land), countries: cs, visited: { type: 'FeatureCollection', features: cs.filter((f) => VISITED.includes(String(f.id))) } }; }
     return L50;
   }
-  function cull50(center, Rr) {
-    if (!C50meta) C50meta = lod50().countries.map((f) => { const c = geoCentroid(f), b = geoBounds(f); const r = b[1][0] < b[0][0] ? Math.PI : Math.max(...[b[0], b[1], [b[0][0], b[1][1]], [b[1][0], b[0][1]]].map((q) => geoDistance(c, q))); return { f, c, r }; });
+  // Feinste Stufe (10m): genaue Küsten beim nahen Zoom. Ohne „land“, gezeichnet werden nur die sichtbaren Länder.
+  function lod10() {
+    if (!TOPO10) return null;
+    if (!L10) { const cs = feature(TOPO10, TOPO10.objects.countries).features; L10 = { countries: cs, visited: { type: 'FeatureCollection', features: cs.filter((f) => VISITED.includes(String(f.id))) } }; }
+    return L10;
+  }
+  // Nur die Länder, die im Bild liegen könnten (für 50m und 10m; Mittelpunkt + Radius je Land einmal berechnet)
+  function cullIn(L, center, Rr) {
+    if (!L.meta) L.meta = L.countries.map((f) => { const c = geoCentroid(f), b = geoBounds(f); const r = b[1][0] < b[0][0] ? Math.PI : Math.max(...[b[0], b[1], [b[0][0], b[1][1]], [b[1][0], b[0][1]]].map((q) => geoDistance(c, q))); return { f, c, r }; });
     const vis = Math.asin(Math.min(1, Math.hypot(w, h) / 2 / Rr)) + 0.06;
-    return { type: 'FeatureCollection', features: C50meta.filter((m) => geoDistance(m.c, center) - m.r < vis).map((m) => m.f) };
+    return { type: 'FeatureCollection', features: L.meta.filter((m) => geoDistance(m.c, center) - m.r < vis).map((m) => m.f) };
+  }
+  // Ab wann die feinste Stufe gilt: Ausschnitt kleiner als ca. 800 km
+  const nahGenug = (Rr) => Rr > 8 * Math.min(w, h);
+
+  /* ---------- Nahansicht: feine Küsten und Ortsnamen ---------- */
+  let nahGeladen = false;
+  function nahDatenLaden() {
+    if (nahGeladen) return; nahGeladen = true;
+    fetch('/data/countries-10m.json').then((r) => r.json()).then((t) => { TOPO10 = t; setTimeout(lod10, 0); }).catch(() => {});
+    fetch('/data/orte.json').then((r) => r.json()).then((o) => { ORTE = o.map(([name, lon, lat, ew]) => ({ name, lon, lat, ew, v: toV3([lon, lat]) })); }).catch(() => {});
+  }
+  // Wie dicht ist der Nebel an dieser Stelle? 0 = frei (erkundet), 1 = voller Nebel. Gleiche Rechnung wie in drawFog.
+  function nebelBei([px, py, pz]) {
+    let m = 1;
+    for (const e of entV) { const dt = px * e[0] + py * e[1] + pz * e[2]; if (dt > cosOut) { const q = (Math.acos(Math.min(1, dt)) - REVr) / FEA; m = Math.min(m, q <= 0 ? 0 : q * q * (3 - 2 * q)); } }
+    if (m > 0) for (const [A, B, n] of segs) {
+      const ad = Math.abs(px * n[0] + py * n[1] + pz * n[2]); if (ad > HW + FEH) continue;
+      const apn = (A[1] * pz - A[2] * py) * n[0] + (A[2] * px - A[0] * pz) * n[1] + (A[0] * py - A[1] * px) * n[2], pbn = (py * B[2] - pz * B[1]) * n[0] + (pz * B[0] - px * B[2]) * n[1] + (px * B[1] - py * B[0]) * n[2];
+      if (apn < 0 || pbn < 0) continue; const q = (Math.asin(ad) - HW) / FEH; m = Math.min(m, q <= 0 ? 0 : q * q * (3 - 2 * q));
+    }
+    return m;
+  }
+  // Ortsnamen nur in erkundeten Gegenden (unter dem Nebel unsichtbar). Je näher, desto kleinere Orte; keine Überlappung.
+  let quelleAn = false;
+  function drawOrte(Rr, center) {
+    let gezeigt = 0;
+    if (ORTE && Rr > 15 * Math.min(w, h) && !fly) {
+      const sichtKm = (EARTH * Math.min(w, h)) / Rr, minEw = sichtKm > 300 ? 50000 : sichtKm > 120 ? 8000 : sichtKm > 60 ? 2500 : 0;
+      ctx.font = '500 11.5px "IBM Plex Mono", monospace'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+      // Pins (und Haus) haben Vorrang: ihre Fläche ist von Anfang an belegt
+      const belegt = [];
+      for (const e of HOME && HEIM.length ? [...ENTRIES, HOME] : ENTRIES) { if (e.zuhause || geoDistance([e.lon, e.lat], center) > 1.2) continue; const [x, y] = proj([e.lon, e.lat]); belegt.push([x - 12, y - 12, x + 12, y + 12]); }
+      for (const o of ORTE) {
+        if (o.ew < minEw || geoDistance([o.lon, o.lat], center) > 1.2) continue;
+        const [x, y] = proj([o.lon, o.lat]); if (x < -50 || y < -20 || x > w + 50 || y > h + 20) continue;
+        const a = 1 - nebelBei(o.v); if (a < 0.08) continue;
+        const tw = ctx.measureText(o.name).width, box = [x - 4, y - 8, x + 8 + tw, y + 8];
+        if (belegt.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) continue; belegt.push(box);
+        ctx.globalAlpha = a; ctx.beginPath(); ctx.arc(x, y, 2.4, 0, 7); ctx.fillStyle = '#5a6577'; ctx.fill();
+        ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.strokeText(o.name, x + 6, y); ctx.fillStyle = '#3b4659'; ctx.fillText(o.name, x + 6, y);
+        gezeigt++;
+      }
+      ctx.globalAlpha = 1; ctx.textBaseline = 'alphabetic';
+    }
+    const an = gezeigt > 0; if (an !== quelleAn) { quelleAn = an; const q = $('#ortQuelle'); if (q) q.hidden = !an; }
   }
 
   /* ---------- Länder-Statistik (Fog of War pro Land) ---------- */
@@ -363,7 +415,7 @@ export async function startGlobus(cfg = {}) {
 
   /* ---------- Zeichnen ---------- */
   const baseCv = document.createElement('canvas'), bctx = baseCv.getContext('2d'), bpath = geoPath(proj, bctx);
-  let baseKey = '', lastKey = '', stable = 0, baseHi = false, curHi = false;
+  let baseKey = '', lastKey = '', stable = 0, baseHi = 0, curHi = 0;
   function drawBase(c2, pth, G, Rr, cx, cy, center, hi) {
     const ga = G.glowA || 0.35;
     const glow = c2.createRadialGradient(cx, cy, Rr * 0.95, cx, cy, Rr * 1.35); glow.addColorStop(0, `rgba(${G.glow},${ga})`); glow.addColorStop(1, `rgba(${G.glow},0)`);
@@ -373,7 +425,7 @@ export async function startGlobus(cfg = {}) {
     c2.beginPath(); pth(grat); c2.strokeStyle = G.grat; c2.lineWidth = 0.7; c2.stroke();
     if (G.dots) { if (!DOTS) buildDots(); const dr = Math.max(1.1, Rr * 0.0085); for (const v of [false, true]) { c2.beginPath(); for (const d of DOTS) { if (d[2] !== v || geoDistance(d, center) > 1.55) continue; const [x, y] = proj(d); c2.moveTo(x + dr, y); c2.arc(x, y, dr, 0, 7); } c2.fillStyle = v ? G.dotV : G.dot; c2.fill(); } }
     else if (hi) {
-      const CC = cull50(center, Rr), LD = lod50(); proj.precision(0); const P = new Path2D(geoPath(proj)(CC) || ''); c2.fillStyle = G.land; c2.fill(P);
+      const LD = hi === 10 ? lod10() : lod50(), CC = cullIn(LD, center, Rr); proj.precision(0); const P = new Path2D(geoPath(proj)(CC) || ''); c2.fillStyle = G.land; c2.fill(P);
       c2.beginPath(); pth(LD.visited); c2.fillStyle = G.visited; c2.fill(); c2.strokeStyle = G.coast || G.border; c2.lineWidth = 0.8; c2.stroke(P); proj.precision(0.4);
     } else {
       c2.beginPath(); pth(land); c2.fillStyle = G.land; c2.fill(); if (G.coast) { c2.strokeStyle = G.coast; c2.lineWidth = 0.9; c2.stroke(); }
@@ -397,21 +449,24 @@ export async function startGlobus(cfg = {}) {
     ctx.clearRect(0, 0, w, h);
     const { R: Rr, cx, cy } = cur; proj.scale(Rr).translate([cx, cy]).rotate(rot);
     const G = GSTYLES[gstyle], center = [-rot[0], -rot[1]];
-    const key = [rot[0].toFixed(3), rot[1].toFixed(3), Rr.toFixed(1), cx.toFixed(1), cy.toFixed(1), w, h, dpr, !!TOPO50].join('|');
+    const key = [rot[0].toFixed(3), rot[1].toFixed(3), Rr.toFixed(1), cx.toFixed(1), cy.toFixed(1), w, h, dpr, !!TOPO50, !!TOPO10].join('|');
+    if (modus === 'home' && nahGenug(Rr * 0.75)) nahDatenLaden(); // etwas vorher anfangen zu laden
     if (key === lastKey) stable++; else stable = 0; lastKey = key;
     if (stable >= 2) {
-      const wantHi = !!TOPO50 && Rr > 850 && stable >= 8;
-      if (baseKey !== key || (wantHi && !baseHi)) { if (baseCv.width !== cv.width || baseCv.height !== cv.height) { baseCv.width = cv.width; baseCv.height = cv.height; } bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.clearRect(0, 0, baseCv.width, baseCv.height); bctx.setTransform(dpr, 0, 0, dpr, 0, 0); drawBase(bctx, bpath, G, Rr, cx, cy, center, wantHi); baseKey = key; baseHi = wantHi; }
+      // 0 = grob, 50 = mittel, 10 = fein (erst im Stillstand, damit Bewegungen flüssig bleiben)
+      const wantHi = !!TOPO50 && Rr > 850 && stable >= 8 ? (TOPO10 && nahGenug(Rr) ? 10 : 50) : 0;
+      if (baseKey !== key || (wantHi && wantHi !== baseHi)) { if (baseCv.width !== cv.width || baseCv.height !== cv.height) { baseCv.width = cv.width; baseCv.height = cv.height; } bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.clearRect(0, 0, baseCv.width, baseCv.height); bctx.setTransform(dpr, 0, 0, dpr, 0, 0); drawBase(bctx, bpath, G, Rr, cx, cy, center, wantHi); baseKey = key; baseHi = wantHi; }
       ctx.drawImage(baseCv, 0, 0, w, h); curHi = baseHi;
-    } else { drawBase(ctx, path, G, Rr, cx, cy, center, false); curHi = false; }
+    } else { drawBase(ctx, path, G, Rr, cx, cy, center, 0); curHi = 0; }
     drawFog(now, Rr);
     if (focusC && modus === 'home') {
-      const fc = (curHi ? lod50().countries : C110).find((x) => String(x.id) === focusC);
+      const fc = (curHi === 10 ? lod10().countries : curHi ? lod50().countries : C110).find((x) => String(x.id) === focusC);
       if (fc) { if (curHi) proj.precision(0); ctx.beginPath(); path(fc); proj.precision(0.4); ctx.setLineDash([7, 5]); ctx.lineWidth = 2; ctx.strokeStyle = gstyle === 'vintage' ? 'rgba(150,40,35,.85)' : 'rgba(207,111,16,.9)'; ctx.stroke(); ctx.setLineDash([]); }
     }
     ctx.beginPath(); path(night); ctx.fillStyle = G.night; ctx.fill();
     if (G.shade) { const sh = ctx.createRadialGradient(cx - Rr * 0.4, cy - Rr * 0.45, Rr * 0.2, cx, cy, Rr * 1.02); sh.addColorStop(0, G.shade[0]); sh.addColorStop(0.7, G.shade[1]); sh.addColorStop(1, G.shade[2]); ctx.beginPath(); path({ type: 'Sphere' }); ctx.fillStyle = sh; ctx.fill(); }
     if (G.rim) { ctx.beginPath(); path({ type: 'Sphere' }); ctx.strokeStyle = G.rim; ctx.lineWidth = 1.4; ctx.stroke(); if (gstyle === 'vintage') { ctx.beginPath(); ctx.arc(cx, cy, Rr + 7, 0, 7); ctx.lineWidth = 0.8; ctx.stroke(); } }
+    if (modus === 'home') drawOrte(Rr, center);
     drawSteps(now, G, Rr, center);
     if (HOME && HEIM.length && geoDistance([HOME.lon, HOME.lat], center) < 1.5) drawHome(now);
     for (const e of ENTRIES) {

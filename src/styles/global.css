@@ -404,3 +404,8 @@ body.start .toast{top:auto;bottom:calc(128px + env(safe-area-inset-bottom,0px))}
   body.karte-offen .dock{opacity:0;pointer-events:none;transform:translate(-50%,16px)}
   body.karte-offen .postcard{bottom:calc(12px + env(safe-area-inset-bottom,0px))}
 }
+
+/* Quellenangabe Ortsnamen (GeoNames, CC BY 4.0) – klein unten links, nur beim nahen Zoom */
+.ortquelle{position:fixed;z-index:6;left:max(12px, env(safe-area-inset-left,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));margin:0;font-family:var(--f-mono);font-size:10px;color:var(--muted);background:rgba(255,255,255,.7);border-radius:6px;padding:2px 6px;pointer-events:auto}
+.ortquelle a{color:inherit}
+@media (max-width:640px){.ortquelle{left:auto;right:10px;bottom:auto;top:calc(234px + env(safe-area-inset-top,0px));max-width:116px;text-align:right}}

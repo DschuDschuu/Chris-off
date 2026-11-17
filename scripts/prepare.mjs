@@ -31,8 +31,28 @@ async function exists(p) { try { await fs.access(p); return true; } catch { retu
 
 // 1. Kartendaten
 await fs.mkdir(path.join(pub, 'data'), { recursive: true });
-for (const f of ['countries-110m.json', 'countries-50m.json']) {
+// countries-10m: genaue Küsten, lädt der Globus erst beim nahen Zoom nach
+for (const f of ['countries-110m.json', 'countries-50m.json', 'countries-10m.json']) {
   await fs.copyFile(path.join(root, 'node_modules/world-atlas', f), path.join(pub, 'data', f));
+}
+
+// Ortsnamen rund um veröffentlichte Einträge (40 km, Nebel ist nur 25 km um jeden Ort frei). Entwürfe zählen
+// bewusst nicht mit, sonst würden Ortsnamen einen noch unveröffentlichten Ort verraten. Siehe scripts/orte.mjs.
+{
+  const punkte = [];
+  const ordner = path.join(contentDir, 'eintraege');
+  for (const f of (await exists(ordner)) ? await fs.readdir(ordner, { recursive: true }) : []) {
+    if (!f.endsWith('.md')) continue;
+    const d = matter(await fs.readFile(path.join(ordner, f), 'utf8')).data;
+    if (d.entwurf === true) continue;
+    let lat = Number(d.breite), lon = Number(d.laenge);
+    try { const g = typeof d.karte === 'string' ? JSON.parse(d.karte) : d.karte; if (g?.type === 'Point') [lon, lat] = g.coordinates; } catch {}
+    if (Number.isFinite(lat) && Number.isFinite(lon)) punkte.push([lat, lon]);
+  }
+  const { orteLesen, orteRundUm } = await import('./orte.mjs');
+  const orte = orteRundUm(orteLesen(path.join(root, 'node_modules/all-the-cities/cities.pbf')), punkte);
+  await fs.writeFile(path.join(pub, 'data', 'orte.json'), JSON.stringify(orte));
+  console.log(`Ortsnamen: ${orte.length} Orte rund um ${punkte.length} Einträge`);
 }
 
 // 2. Medien (nur neue oder geänderte Dateien werden bearbeitet; Liste in .verarbeitet.json)
