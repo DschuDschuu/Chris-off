@@ -737,11 +737,11 @@ export async function startGlobus(cfg = {}) {
     const es = stapelUm(x, y, r);
     if (!es.length) return; kartenStapel = es.length > 1 ? { es, i: 0 } : null; select(es[0]);
   }
-  // Im Stapel blättern: Globus dreht sanft zum Eintrag, der Zoom bleibt
+  // Im Stapel blättern: nur die Postkarte wechselt, der Globus bleibt stehen (die Einträge liegen höchstens ein Polaroid
+  // auseinander). Ein Flug würde während der Bewegung Postkarte, Fotos und Ortsnamen ausblenden – alles blinkte kurz weg.
   function stapelWechsel(d) {
     const st = kartenStapel; if (!st) return;
     st.i = (st.i + d + st.es.length) % st.es.length; const e = st.es[st.i]; active = e; openCard(e, d);
-    flyTo({ lon: e.lon, lat: e.lat - ortVersatz(zoom) }, 700, false, true, zoom);
   }
   $('#pcVor').onclick = () => stapelWechsel(-1); $('#pcNach').onclick = () => stapelWechsel(1);
   // Wischen auf der Postkarte (wie in der Bildansicht): die ganze Karte samt Luftpost-Rahmen folgt dem Finger.
