@@ -376,7 +376,7 @@ body.start .toast{top:auto;bottom:calc(128px + env(safe-area-inset-bottom,0px))}
 .ar-reise{color:#c0392b}
 
 /* Zuhause: Postkarte ohne Bild, mit Liste der Einträge von zuhause */
-.postcard.heim .pc-in{grid-template-columns:minmax(0,1fr)}
+.postcard.heim .pc-in,.postcard.ohne-bild .pc-in{grid-template-columns:minmax(0,1fr)}
 .heim-liste{list-style:none;margin:0;padding:0;width:100%;display:grid;gap:2px;max-height:min(240px,40vh);overflow-y:auto;overscroll-behavior:contain}
 .heim-liste button{width:100%;display:flex;justify-content:space-between;align-items:baseline;gap:10px;background:none;border:0;border-radius:8px;padding:7px 8px;text-align:left;color:#16295e}
 .heim-liste button:hover{background:rgba(29,63,154,.07)}
@@ -427,10 +427,4 @@ body.nah .topr{opacity:0;visibility:hidden;position:absolute;right:max(16px, env
 .pc-stapel button:hover{background:#1d3f9a;color:#fff}
 .postcard.stapel{touch-action:pan-y}
 .postcard a,.postcard img{-webkit-user-drag:none}
-/* Blättern im Stapel: die ganze Postkarte samt Rahmen gleitet herein. „translate“ statt „transform“, damit die
-   Schräglage (transform: rotate) bleibt; globus.js setzt beim Ziehen ebenfalls style.translate */
-@keyframes pcWischL{from{translate:44px 0;opacity:0}to{translate:0 0;opacity:1}}
-@keyframes pcWischR{from{translate:-44px 0;opacity:0}to{translate:0 0;opacity:1}}
-.postcard.wisch-l{animation:pcWischL .25s ease}
-.postcard.wisch-r{animation:pcWischR .25s ease}
-@media (prefers-reduced-motion:reduce){.postcard.wisch-l,.postcard.wisch-r{animation:none}}
+/* Blättern im Stapel: Raus- und Rein-Bewegung macht stapelWechsel() in globus.js (Web Animations über „translate“) */
