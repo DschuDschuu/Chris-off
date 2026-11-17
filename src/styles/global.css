@@ -347,3 +347,11 @@ body.start .toast{top:auto;bottom:calc(128px + env(safe-area-inset-bottom,0px))}
 .toast{border-radius:14px}
 @media (max-width:640px){body.start .toast{bottom:auto;top:calc(10px + env(safe-area-inset-top,0px))}}
 @media (max-width:760px){.sheet-bar{flex-wrap:nowrap}.sheet-bar .btn.sm{padding:7px 11px}.sheet-bar .grp{flex-wrap:nowrap;gap:6px}}
+
+/* Handy quer (niedriger Bildschirm): Postkarte kompakt, Hinweise fangen keine Klicks ab */
+.toast{pointer-events:none}
+@media (max-height:520px) and (min-width:641px){
+  .postcard{width:420px;z-index:45}
+  .pc-in{grid-template-columns:96px minmax(0,1fr);gap:10px}.pc-img{width:96px;height:118px}
+  .pc-ex{display:none!important}.pc-body h2{font-size:19px}.pc-btn{font-size:13px;padding:5px 10px}
+}

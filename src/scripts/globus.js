@@ -392,9 +392,11 @@ export async function startGlobus(cfg = {}) {
         const [x, y] = proj([cardE.lon, cardE.lat]), cw = pc.offsetWidth, ch = pc.offsetHeight, g = 40;
         const others = ENTRIES.filter((e) => e !== cardE && geoDistance([e.lon, e.lat], center) < 1.5).map((e) => proj([e.lon, e.lat])).concat(poemPos.filter((q) => q.vis).map((q) => [q.x, q.y]));
         const cands = [[x - g - cw, y - ch / 2], [x + g, y - ch / 2], [x - cw / 2, y - g - ch], [x - cw / 2, y + g], [x - 160 - cw, y - ch / 2], [x + 160, y - ch / 2], [x - 160 - cw, y - ch * 0.8], [x + 160, y - ch * 0.2]];
+        // Niedrige Bildschirme (Handy quer): kleine Ränder, damit die Karte nicht oben herausrutscht
+        const flach = h < 520, tMin = flach ? 8 : focusC ? 222 : 86, tMax = flach ? h - ch - 8 : h - ch - 130;
         let best = null, bs = 1e9;
         cands.forEach(([l0, t0], i) => {
-          const l = Math.min(w - cw - 16, Math.max(16, l0)), t = Math.min(h - ch - 130, Math.max(focusC ? 222 : 86, t0)); let sc = i * 0.1;
+          const l = Math.min(w - cw - 16, Math.max(16, l0)), t = Math.max(8, Math.min(tMax, Math.max(tMin, t0))); let sc = i * 0.1;
           for (const [ox, oy] of others) if (ox > l - 14 && ox < l + cw + 14 && oy > t - 14 && oy < t + ch + 14) sc += 10;
           if (x > l - 16 && x < l + cw + 16 && y > t - 16 && y < t + ch + 16) sc += 100; if (sc < bs) { bs = sc; best = [l, t]; }
         });
