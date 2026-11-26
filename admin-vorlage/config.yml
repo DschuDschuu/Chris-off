@@ -14,6 +14,18 @@ site_url: __URL__
 display_url: __URL__
 media_folder: media
 public_folder: /media
+# Fotos vor dem Hochladen schon auf dem Handy verkleinern (höchstens 2400 px wie in prepare.mjs) und als WebP speichern.
+# Ein iPhone-Foto hat 3–6 MB; mit mehreren Fotos brauchte das Speichern (alles in einer Anfrage an GitHub) zu lange,
+# Safari brach mit „Load failed“ ab. Beim Verkleinern fallen auch GPS und andere Kameradaten weg. Bestehende Fotos bleiben.
+media_libraries:
+  default:
+    config:
+      transformations:
+        raster_image:
+          format: webp
+          quality: 85
+          width: 2400
+          height: 2400
 slug:
   encoding: ascii
   clean_accents: true
