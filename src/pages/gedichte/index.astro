@@ -1,11 +1,15 @@
 ---
-import Base from '../../layouts/Base.astro';
-import Gedichte from '../../components/Gedichte.astro';
-import { alleGedichte, alleEintraege, findeEintrag } from '../../lib/daten';
-const liste = await alleGedichte();
-const neuestes = liste[0] ?? null;
-const e = neuestes ? findeEintrag(await alleEintraege(), neuestes.data.eintrag) : undefined;
+// Alte Adresse: „Gedichte“ heißen jetzt „Gedanken“ (/gedanken/). Diese Seite leitet alte Links und Lesezeichen weiter.
+const ziel = '/gedanken/';
 ---
-<Base titel="Gedichte" beschreibung="Gedichte von unterwegs, als Luftpost auf der Weltkugel." bereich="gedichte" fokus={e?.id}>
-  <Gedichte liste={liste} aktuell={neuestes} />
-</Base>
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <title>Weitergeleitet zu den Gedanken</title>
+    <meta name="robots" content="noindex" />
+    <link rel="canonical" href={ziel} />
+    <meta http-equiv="refresh" content={`0; url=${ziel}`} />
+  </head>
+  <body><p>Die Gedichte heißen jetzt Gedanken: <a href={ziel}>weiter</a>.</p></body>
+</html>

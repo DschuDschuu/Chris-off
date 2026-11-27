@@ -1,5 +1,5 @@
 ---
-// Gedichte: Liste links, ausgewähltes Gedicht als Luftpost-Brief rechts
+// Gedanken (früher Gedichte; intern weiter Sammlung „gedichte“): Liste links, ausgewählter Gedanke als Luftpost-Brief rechts
 import { alleEintraege, datumDE, strophen, findeEintrag, ohneBei, ausOrt, inOrt } from '../lib/daten';
 import type { CollectionEntry } from 'astro:content';
 
@@ -10,20 +10,20 @@ const g = aktuell;
 const e = g ? findeEintrag(eintraege, g.data.eintrag) : undefined;
 const ort = e?.data.ort ?? g?.data.ort ?? '';
 ---
-<section class="poems seite" aria-label="Gedichte">
+<section class="poems seite" aria-label="Gedanken">
   <div class="poems-wrap">
-    <nav class="plist" aria-label="Alle Gedichte">
-      <p class="mono">Gedichte · {liste.length}</p>
+    <nav class="plist" aria-label="Alle Gedanken">
+      <p class="mono">Gedanken · {liste.length}</p>
       {liste.map((p) => {
         const pe = findeEintrag(eintraege, p.data.eintrag);
         return (
-          <a href={`/gedichte/${p.id}/`} aria-current={p.id === g?.id ? 'page' : undefined}>
+          <a href={`/gedanken/${p.id}/`} aria-current={p.id === g?.id ? 'page' : undefined}>
             <span class="pt">{p.data.titel}</span>
             <span class="mono">{datumDE(p.data.datum)}{(pe?.data.ort ?? p.data.ort) ? ` · ${pe?.data.ort ?? p.data.ort}` : ''}</span>
           </a>
         );
       })}
-      {liste.length === 0 && <p>Noch keine Gedichte.</p>}
+      {liste.length === 0 && <p>Noch keine Gedanken.</p>}
     </nav>
 
     {g && (
@@ -46,7 +46,7 @@ const ort = e?.data.ort ?? g?.data.ort ?? '';
 </section>
 
 <script>
-  // Gedicht von der Browserstimme vorlesen lassen, Strophe für Strophe
+  // Gedanken von der Browserstimme vorlesen lassen, Absatz für Absatz
   const btn = document.getElementById('gVorlesen');
   if (btn && 'speechSynthesis' in window) {
     const st = [...document.querySelectorAll<HTMLElement>('#gText .stanza')];

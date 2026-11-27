@@ -18,7 +18,7 @@ interface Props {
   modus?: 'home' | 'lesen';
   fokus?: string | null;          // Eintrag, auf den die Weltkugel schaut
   fokusOrt?: [number, number] | null; // alternativ Koordinaten [lon, lat]
-  bereich?: 'tagebuch' | 'gedichte' | null;
+  bereich?: 'tagebuch' | 'gedanken' | null;
   typ?: 'website' | 'article';
   ohneKopf?: boolean;              // Leseseiten: eigene Leiste statt Kopfzeile
 }
@@ -63,7 +63,7 @@ const feed = new URL('/rss.xml', Astro.site).href;
     <div class="topr">
       <nav class="nav" aria-label="Bereiche">
         <a href="/" aria-current={bereich === 'tagebuch' ? 'page' : undefined}>Tagebuch</a>
-        <a href="/gedichte/" aria-current={bereich === 'gedichte' ? 'page' : undefined}>Gedichte</a>
+        <a href="/gedanken/" aria-current={bereich === 'gedanken' ? 'page' : undefined}>Gedanken</a>
       </nav>
       <button class="chip" id="rssBtn" aria-label="RSS-Feed abonnieren" aria-haspopup="dialog">📡<span class="hide-n"> RSS</span></button>
     </div>
