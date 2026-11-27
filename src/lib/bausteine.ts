@@ -25,6 +25,15 @@ export const liederAus = (bausteine: Baustein[]): Lied[] =>
 export const bausteinText = (bausteine: Baustein[]) =>
   bausteine.filter((b) => ['text', 'ueberschrift', 'notiz'].includes(b.type)).map((b) => str(b.text)).filter(Boolean).join('\n\n');
 
+// Fotos aus den Bausteinen (Foto, Fotostreifen) in Reihenfolge, mit Bildtext – für die Bildseite der Postkarte und die Fotowand
+export const bausteinFotos = (bausteine: Baustein[]) =>
+  bausteine.flatMap((b) => {
+    if (b.type === 'foto') return str(b.bild) ? [{ bild: str(b.bild), text: str(b.text) }] : [];
+    if (b.type !== 'streifen') return [];
+    return (Array.isArray(b.bilder) ? b.bilder : []).map((x) => (typeof x === 'string' ? x : str((x as { bild?: unknown })?.bild)))
+      .filter(Boolean).slice(0, 3).map((bild, i) => ({ bild, text: i === 0 ? str(b.text) : '' })); // Bildtext des Streifens nur einmal
+  });
+
 // liederVorher: Lieder eines noch nicht umgewandelten älteren Eintrags (freier Text), damit die Nummern weiterzählen
 export async function bausteineHtml(bausteine: Baustein[], liederVorher: Lied[] = []) {
   const lieder = [...liederVorher, ...liederAus(bausteine)];

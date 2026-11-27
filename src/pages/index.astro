@@ -53,26 +53,52 @@ const neuester = eintraege[0];
         <h2 id="arH">Archiv</h2>
         <button class="btn sm" id="arClose" aria-label="Archiv schließen">✕<span class="hide-n"> Schließen</span></button>
       </div>
-      <nav class="ar-jahre" id="arJahre" aria-label="Jahre"></nav>
-      <div id="entryList"></div>
+      {/* Zwei Reiter: Liste (Jahr → Monat) und Fotowand (alle Fotos als Polaroids, filterbar nach Reise/Land) – globus.js */}
+      <div class="ar-reiter" role="tablist" aria-label="Ansicht">
+        <button role="tab" id="arTabListe" aria-selected="true" aria-controls="arListe">Liste</button>
+        <button role="tab" id="arTabFotos" aria-selected="false" aria-controls="fotoWand" tabindex="-1">Fotowand</button>
+      </div>
+      <div id="arListe" role="tabpanel" aria-labelledby="arTabListe">
+        <nav class="ar-jahre" id="arJahre" aria-label="Jahre"></nav>
+        <div id="entryList"></div>
+      </div>
+      <div id="fotoWand" role="tabpanel" aria-labelledby="arTabFotos" hidden>
+        <div class="fw-filter" id="fwFilter" role="group" aria-label="Fotos filtern"></div>
+        <ul class="fw-wand" id="fwWand"></ul>
+      </div>
     </div>
   </div>
 
   <div class="postcard" id="postcard" hidden role="dialog" aria-labelledby="pcTitle">
     <button class="pc-x" id="pcClose" aria-label="Postkarte schließen">✕</button>
-    <div class="pc-in">
-      <a class="pc-img" id="pcImgLink" href="/"><img id="pcImg" alt=""><span class="pc-hint" id="pcHint">Lesen</span></a>
-      <div class="pc-body">
-        <span class="pa">✈ PAR AVION</span>
-        <p class="pc-eyebrow" id="pcEyebrow"></p>
-        <h2 id="pcTitle"></h2>
-        <p class="pc-meta" id="pcMeta"></p>
-        <p class="pc-ex" id="pcEx" hidden></p>
+    <span class="pc-neu" id="pcNeu" hidden>NEU</span>
+    {/* Umdrehen (globus.js, karteDrehen): vorne Text mit Briefmarke, hinten bis zu zwei Fotos und „Grüße aus …“ */}
+    <button class="pc-drehen" id="pcDrehen" hidden aria-label="Postkarte umdrehen: Fotos ansehen"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg><span id="pcDrehText">Fotos</span></button>
+    {/* Stapel: mehrere Einträge am selben Ort – blättern per ‹ › oder Wischen (globus.js, stapelWechsel); oben am Rand, damit es auf beiden Seiten geht */}
+    <div class="pc-stapel" id="pcStapel" hidden><button id="pcVor" aria-label="Vorheriger Eintrag hier">‹</button><span id="pcNr"></span><button id="pcNach" aria-label="Nächster Eintrag hier">›</button></div>
+    <div class="pc-dreh">
+      <div class="pc-seite pc-vorne" id="pcVorne">
+        <div class="pc-in">
+          <a class="pc-img" id="pcImgLink" href="/"><img id="pcImg" alt="" decoding="async"><span class="pc-hint" id="pcHint">Lesen</span></a>
+          <div class="pc-body">
+            <span class="pa">✈ PAR AVION</span>
+            <p class="pc-eyebrow" id="pcEyebrow"></p>
+            <h2 id="pcTitle"></h2>
+            <p class="pc-meta" id="pcMeta"></p>
+            <p class="pc-ex" id="pcEx" hidden></p>
+          </div>
+          {/* kleine Briefmarke des Landes oben rechts (statt des runden Stempels .pc-pm) */}
+          <div class="pc-marke marke" id="pcMarke" aria-hidden="true"></div>
+          <div class="pc-actions" id="pcActions"></div>
+          <div class="pc-pm" id="pcPm"></div>
+        </div>
       </div>
-      <div class="pc-actions" id="pcActions"></div>
-      {/* Stapel: mehrere Einträge am selben Ort – blättern per ‹ › oder Wischen (globus.js, stapelWechsel) */}
-      <div class="pc-stapel" id="pcStapel" hidden><button id="pcVor" aria-label="Vorheriger Eintrag hier">‹</button><span id="pcNr"></span><button id="pcNach" aria-label="Nächster Eintrag hier">›</button></div>
-      <div class="pc-pm" id="pcPm"></div>
+      <div class="pc-seite pc-hinten" id="pcHinten" inert>
+        <div class="pc-bild" id="pcBild">
+          <img id="pcFoto1" alt="" decoding="async"><img id="pcFoto2" alt="" decoding="async">
+          <p class="pb-gruss"><span class="pb-aus" id="pbAus">Grüße aus</span> <span class="pb-ort" id="pbOrt"></span></p>
+        </div>
+      </div>
     </div>
   </div>
 

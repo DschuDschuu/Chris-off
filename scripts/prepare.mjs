@@ -85,6 +85,11 @@ try { alt = JSON.parse(await fs.readFile(listeDatei, 'utf8')); } catch {}
 const neu = {};
 await fs.rm(path.join(out, '.verarbeitet.json'), { force: true });
 const BILD = /\.(jpe?g|png|webp|avif|tiff?)$/i;
+// Vorschaubilder (höchstens 640 px, WebP) für Polaroids auf dem Globus, Bildseite der Postkarte und Fotowand –
+// sonst lädt eine Fotowand am Handy jedes Foto in voller Größe. Pfad: /media/a/b.jpg → /media-klein/a/b.webp
+// (klein() in src/lib/daten.ts). Auch hier entfernt sharp beim Schreiben alle Metadaten.
+const kleinOut = path.join(pub, 'media-klein');
+const kleinZiel = (rel) => path.join(kleinOut, rel.replace(/\.[^./]+$/, '.webp'));
 let bearbeitet = 0;
 async function walk(dir) {
   for (const d of await fs.readdir(dir, { withFileTypes: true })) {
@@ -96,11 +101,13 @@ async function walk(dir) {
     const buf = await fs.readFile(p);
     const hash = crypto.createHash('sha1').update(buf).digest('hex');
     neu[rel] = hash;
-    if (alt[rel] === hash && (await exists(ziel))) continue;
+    if (alt[rel] === hash && (await exists(ziel)) && (!BILD.test(d.name) || (await exists(kleinZiel(rel))))) continue;
     await fs.mkdir(path.dirname(ziel), { recursive: true });
     if (BILD.test(d.name)) {
       // rotate(): Drehung aus den Kameradaten übernehmen; beim Neuschreiben entfernt sharp alle Metadaten (auch GPS)
       await sharp(buf).rotate().resize({ width: 2400, height: 2400, fit: 'inside', withoutEnlargement: true }).toFile(ziel);
+      await fs.mkdir(path.dirname(kleinZiel(rel)), { recursive: true });
+      await sharp(buf).rotate().resize({ width: 640, height: 640, fit: 'inside', withoutEnlargement: true }).webp({ quality: 72 }).toFile(kleinZiel(rel));
     } else {
       await fs.copyFile(p, ziel);
     }
@@ -109,7 +116,7 @@ async function walk(dir) {
 }
 if (await exists(src)) await walk(src);
 // Gelöschte Medien auch aus der Seite entfernen
-for (const rel of Object.keys(alt)) if (!neu[rel]) await fs.rm(path.join(out, rel), { force: true });
+for (const rel of Object.keys(alt)) if (!neu[rel]) { await fs.rm(path.join(out, rel), { force: true }); await fs.rm(kleinZiel(rel), { force: true }); }
 await fs.writeFile(listeDatei, JSON.stringify(neu));
 
 // 3. Editor-Konfiguration

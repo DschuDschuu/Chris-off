@@ -5,6 +5,7 @@ dist/
 # wird beim Bauen erzeugt
 public/data/
 public/media/
+public/media-klein/
 public/admin/
 .DS_Store
 Thumbs.db

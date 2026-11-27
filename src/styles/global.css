@@ -72,14 +72,19 @@ body.has-player .dock{bottom:calc(104px + env(safe-area-inset-bottom,0px))}
 .pop button:hover,.pop button[aria-current="true"]{background:rgba(28,36,51,.06)}
 .pop .d{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);white-space:nowrap}
 .reise-zeile{margin:6px 0 0;font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--amber)}
-.postcard{position:fixed;left:0;top:0;z-index:9;width:450px;max-width:calc(100vw - 24px);box-sizing:border-box;padding:10px;border-radius:4px;
-  background:repeating-linear-gradient(-45deg,#d0292f 0 11px,#fbf8f1 11px 22px,#1d3f9a 22px 33px,#fbf8f1 33px 44px);box-shadow:0 20px 46px rgba(20,30,50,.3);
+.postcard{position:fixed;left:0;top:0;z-index:9;width:450px;max-width:calc(100vw - 24px);box-sizing:border-box;perspective:1600px;
   transform:rotate(-1.5deg);transition:opacity .25s ease}
+/* Zwei Seiten mit Luftpost-Rahmen; .pc-dreh dreht sich (.postcard.gedreht), die Rückseite liegt deckungsgleich dahinter */
+.pc-dreh{position:relative;transform-style:preserve-3d;transition:transform .6s cubic-bezier(.3,.7,.25,1)}
+.postcard.gedreht .pc-dreh{transform:rotateY(180deg)}
+.pc-dreh.sofort{transition:none}
+.pc-seite{box-sizing:border-box;padding:10px;border-radius:4px;background:repeating-linear-gradient(-45deg,#d0292f 0 11px,#fbf8f1 11px 22px,#1d3f9a 22px 33px,#fbf8f1 33px 44px);box-shadow:0 20px 46px rgba(20,30,50,.3);-webkit-backface-visibility:hidden;backface-visibility:hidden}
+.pc-hinten{position:absolute;inset:0;transform:rotateY(180deg)}
 .postcard.away{opacity:0;pointer-events:none}
 .postcard.pop-in{animation:pcIn .4s ease}
 @keyframes pcIn{from{transform:rotate(-1.5deg) translateY(12px) scale(.94)}to{transform:rotate(-1.5deg)}}
-.pc-in{position:relative;background:#fbf8f1;color:#16295e;display:grid;grid-template-columns:150px minmax(0,1fr);gap:14px;padding:12px}
-.pc-img{position:relative;padding:0;border:0;display:block;width:150px;height:184px;overflow:hidden;background:#cdd5e0}
+.pc-in{position:relative;background:#fbf8f1;color:#16295e;display:grid;grid-template-columns:120px minmax(0,1fr);gap:14px;padding:12px}
+.pc-img{position:relative;padding:0;border:0;display:block;overflow:hidden;background:#cdd5e0;text-decoration:none}
 .pc-img img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s ease}
 .pc-img:hover img{transform:scale(1.05)}
 .pc-hint{position:absolute;left:6px;bottom:6px;background:rgba(20,28,45,.78);color:#fff;font-family:var(--f-mono);font-size:10.5px;border-radius:999px;padding:4px 9px}
@@ -97,7 +102,7 @@ body.has-player .dock{bottom:calc(104px + env(safe-area-inset-bottom,0px))}
 @media (max-width:640px){
   .postcard{left:max(12px, env(safe-area-inset-left,0px))!important;right:max(12px, env(safe-area-inset-right,0px));top:auto!important;bottom:calc(122px + env(safe-area-inset-bottom,0px));width:auto;max-width:none}
   body.has-player .postcard{bottom:calc(210px + env(safe-area-inset-bottom,0px))}
-  .pc-in{grid-template-columns:100px minmax(0,1fr);gap:10px;padding:10px}.pc-img{width:100px;height:132px}.pc-btn{font-size:13px;padding:5px 10px}.pc-hint{font-size:9.5px}
+  .pc-in{grid-template-columns:88px minmax(0,1fr);gap:10px;padding:10px}.pc-btn{font-size:13px;padding:5px 10px}.pc-hint{font-size:9.5px}
   .dock .stats span:nth-child(3){display:none}.dock .stats{font-size:11px;padding:5px 12px}.pc-body h2{font-size:19px}.pc-body{padding-right:0}.pc-pm{display:none}.pc-eyebrow{padding-right:0}
 }
 @media (max-width:760px){main.home .gstyle{position:fixed;top:calc(104px + env(safe-area-inset-top,0px));left:50%;right:auto;transform:translateX(-50%);margin:0;flex-wrap:nowrap;white-space:nowrap}}
@@ -311,7 +316,6 @@ body.dim #globe{pointer-events:none;opacity:.5}
 .artnav a{display:grid;gap:4px;text-align:left;border:1px solid var(--line);border-radius:12px;padding:14px;color:var(--ink);text-decoration:none}
 .artnav a.next{text-align:right}
 .artnav a:hover{border-color:var(--ink)}
-a.pc-img{text-decoration:none}
 .pc-in > .pc-actions{gap:6px}
 .lesen .art-head h1{margin-top:10px}
 .lesen .stats span{white-space:nowrap}
@@ -350,7 +354,7 @@ body.start .toast{top:auto;bottom:calc(128px + env(safe-area-inset-bottom,0px))}
 .toast{pointer-events:none}
 @media (max-height:520px) and (min-width:641px){
   .postcard{width:420px;z-index:45}
-  .pc-in{grid-template-columns:96px minmax(0,1fr);gap:10px}.pc-img{width:96px;height:118px}
+  .pc-in{grid-template-columns:96px minmax(0,1fr);gap:10px}
   .pc-ex{display:none!important}.pc-body h2{font-size:19px}.pc-btn{font-size:13px;padding:5px 10px}
 }
 
@@ -422,8 +426,9 @@ body.start .toast{top:auto;bottom:calc(128px + env(safe-area-inset-bottom,0px))}
 body.nah .topr{opacity:0;visibility:hidden;position:absolute;right:max(16px, env(safe-area-inset-right,0px))} /* aus dem Fluss, damit der Titel die ganze Breite bekommt */
 
 /* Stapel auf der Postkarte: „‹ 1 / 4 ›“, Wischen blättert (globus.js) */
-.pc-stapel{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:14px;font-family:var(--f-mono);font-size:12px;color:#16295e}
-.pc-stapel button{width:32px;height:32px;border-radius:50%;border:1.5px solid #1d3f9a;background:#fff;color:#1d3f9a;font-size:19px;line-height:1;padding:0 0 2px}
+.pc-stapel{position:absolute;top:-17px;left:50%;transform:translateX(-50%);z-index:3;display:flex;align-items:center;justify-content:center;gap:8px;padding:2px;border-radius:999px;border:1px solid var(--line);background:#fff;box-shadow:0 4px 12px rgba(20,30,50,.2);font-family:var(--f-mono);font-size:12px;color:#16295e;white-space:nowrap}
+.pc-stapel[hidden]{display:none}
+.pc-stapel button{width:30px;height:30px;border-radius:50%;border:1.5px solid #1d3f9a;background:#fff;color:#1d3f9a;font-size:18px;line-height:1;padding:0 0 2px}
 .pc-stapel button:hover{background:#1d3f9a;color:#fff}
 .postcard.stapel{touch-action:pan-y}
 .postcard a,.postcard img{-webkit-user-drag:none}
@@ -461,3 +466,124 @@ body.zr-aktiv #cbar,body.zr-aktiv #worldBtn{display:none!important}
 .marke .m-tag{font:700 6.8px var(--f-mono);fill:rgba(28,36,51,.78)}
 .pop .marke .m-unter{display:block;font-family:var(--f-mono);font-size:10.5px;color:var(--muted);margin-top:6px}
 @media (prefers-reduced-motion:reduce){.pop .marke svg{transition:none}}
+
+/* „NEU“ (Einträge der letzten 7 Tage, globus.js NEU_TAGE): Aufkleber oben links auf der Postkarte, Etikett in Listen */
+.pc-neu{position:absolute;top:-11px;left:16px;z-index:2;background:#d0292f;color:#fff;font:600 11px/1 var(--f-mono);letter-spacing:.14em;padding:5px 9px 4px;border-radius:3px;transform:rotate(-5deg);box-shadow:0 3px 8px rgba(20,30,50,.25);pointer-events:none}
+.pc-neu[hidden]{display:none}
+.ar-neu{display:inline-block;vertical-align:2px;margin-left:4px;background:#d0292f;color:#fff;font:600 9.5px/1 var(--f-mono);letter-spacing:.12em;padding:3px 5px 2px;border-radius:2px}
+
+/* Postkarte vorne rechts: Briefmarke des Landes mit Poststempel (Ort, Datum) und Adresse wie auf einer echten Karte.
+   Mit Marke braucht es den runden Stempel .pc-pm nicht (nur noch Zuhause-Karte und Orte ohne Land). */
+.pc-marke{position:absolute;top:10px;right:12px;width:46px;pointer-events:none}
+.pc-marke svg{display:block;width:100%;height:auto;transform:rotate(4deg);filter:drop-shadow(0 2px 3px rgba(60,40,10,.28))}
+.pc-marke .loch circle{fill:#fbf8f1}
+.pc-marke:empty{display:none}
+.postcard.mit-marke .pc-pm{display:none}
+.postcard.mit-marke .pc-body{padding-right:0}
+/* Platz neben der Marke nur für die oberen Zeilen; Ort/Datum und Auszug laufen darunter über die volle Breite */
+.postcard.mit-marke .pc-eyebrow,.postcard.mit-marke .pc-body h2{padding-right:50px}
+.pc-ex{font-family:var(--f-hand);font-style:normal;font-weight:500;font-size:19px;line-height:1.22;color:#22345f}
+/* Knopf zum Umdrehen oben am Rand neben ✕ (bleibt beim Drehen stehen) */
+.pc-drehen{position:absolute;top:-13px;right:26px;z-index:3;display:inline-flex;align-items:center;gap:5px;height:30px;box-sizing:border-box;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:#fff;color:#1c2433;font-family:var(--f-mono);font-size:12px;box-shadow:0 4px 12px rgba(20,30,50,.2)}
+.pc-drehen[hidden]{display:none}
+.pc-drehen:hover{background:#f3f5f9}
+/* Bildseite: zwei Fotos nebeneinander (fast quadratisch, Hoch- und Querformat passen), darunter „Grüße aus …“ in
+   Poststempel-Wellen. Ein Foto: über die ganze Breite. Schriftgröße passt sich der Länge des Ortsnamens an (--zeichen). */
+.pc-bild{height:100%;box-sizing:border-box;background:#fbf8f1;padding:5px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:minmax(0,1fr) 90px;gap:5px;container-type:inline-size;cursor:pointer}
+.pc-bild img{width:100%;height:100%;min-height:0;object-fit:cover;display:block;background:#cdd5e0}
+.pc-bild.eins img:first-child{grid-column:1/-1}.pc-bild.eins img + img{display:none}
+/* „Grüße aus“ beginnt bündig über dem ersten Buchstaben des Orts (Spalte so breit wie der Ortsname) und ragt nur knapp in die Großbuchstaben */
+.pb-gruss{grid-column:1/-1;margin:0;display:grid;grid-template-columns:auto;justify-content:center;align-content:center;min-width:0}
+.pb-aus{justify-self:start;position:relative;z-index:1;margin:0 0 -9px -6px;font-family:var(--f-hand);font-weight:500;font-size:28px;line-height:1;color:#c0252b;transform:rotate(-6deg);transform-origin:left bottom}
+.pb-ort{font-family:var(--f-display);font-size:min(62px, calc(124cqw / var(--zeichen, 8)));line-height:1;letter-spacing:.04em;white-space:nowrap;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='9' viewBox='0 0 16 9'%3E%3Crect width='16' height='9' fill='%23fbf8f1'/%3E%3Cpath d='M-8 2.5q4-2.7 8 0t8 0t8 0t8 0' fill='none' stroke='%231d3f9a' stroke-width='1.4'/%3E%3Cpath d='M-8 6.5q4-2.7 8 0t8 0t8 0t8 0' fill='none' stroke='%23d0292f' stroke-width='1.4'/%3E%3C/svg%3E") 0 0/16px 9px;
+  -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:1.4px #16295e}
+@media (max-width:640px){
+  .pc-marke{width:36px;top:8px;right:9px}.postcard.mit-marke .pc-eyebrow,.postcard.mit-marke .pc-body h2{padding-right:40px}
+  .pc-ex{font-size:17px}
+  .pc-bild{grid-template-rows:minmax(0,1fr) 70px}.pb-aus{font-size:22px;margin-bottom:-7px}
+}
+@media (prefers-reduced-motion:reduce){.pc-dreh{transition:none}}
+
+/* Archiv: Reiter „Liste“ / „Fotowand“ */
+.ar-reiter{display:flex;gap:4px;margin:14px 0 0;border-bottom:1px solid var(--line)}
+.ar-reiter button{border:0;background:none;padding:8px 14px 9px;font-family:var(--f-mono);font-size:12.5px;letter-spacing:.06em;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.ar-reiter button[aria-selected="true"]{color:var(--ink);border-bottom-color:#d0292f}
+.ar-reiter button:hover{color:var(--ink)}
+.ar-reiter button[hidden]{display:none}
+/* Fotowand: Polaroids in Spalten (Höhe je nach Foto), leicht schräg, mit Klebestreifen wie beim Notizzettel */
+.fw-filter{display:flex;flex-wrap:wrap;gap:6px;margin:16px 0 6px}
+.fw-filter button{font-family:var(--f-mono);font-size:12px;color:var(--ink);background:none;border:1px solid var(--line);border-radius:999px;padding:4px 11px}
+.fw-filter button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+.fw-filter .d{opacity:.6;margin-left:2px}
+.fw-wand{list-style:none;margin:18px 0 0;padding:0;columns:200px;column-gap:22px}
+.fw-wand li{break-inside:avoid;margin:0 0 26px}
+.fw-foto{position:relative;display:block;width:100%;padding:8px 8px 10px;border:0;border-radius:2px;background:#fffdf8;text-align:left;color:var(--ink);box-shadow:0 3px 10px rgba(20,30,50,.16);transform:rotate(var(--kipp,0deg));transition:transform .2s ease,box-shadow .2s ease}
+.fw-foto:hover,.fw-foto:focus-visible{transform:rotate(0deg) scale(1.03);box-shadow:0 8px 22px rgba(20,30,50,.22);z-index:1}
+.fw-foto::before{content:"";position:absolute;top:-9px;left:50%;width:64px;height:20px;transform:translateX(-50%) rotate(-3deg);background:rgba(244,226,160,.72);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.fw-foto img{display:block;width:100%;height:auto;min-height:60px;background:#e6e9ef}
+.fw-text{display:block;margin:7px 2px 0;font-family:var(--f-hand);font-weight:500;font-size:18px;line-height:1.15;color:#22345f}
+.fw-ort{display:block;margin:3px 2px 0;font-family:var(--f-mono);font-size:10px;color:var(--muted)}
+.fw-leer{font-family:var(--f-mono);font-size:13px;color:var(--muted)}
+@media (max-width:640px){.fw-wand{columns:2;column-gap:14px}.fw-text{font-size:16px}}
+@media (prefers-reduced-motion:reduce){.fw-foto{transition:none}}
+
+/* Archiv: Link zum Jahresrückblick an der Jahreszahl */
+.ar-jahr h3 .ar-rueck{margin-left:auto;font-family:var(--f-mono);font-size:12px;color:#c0252b;text-decoration:none;white-space:nowrap}
+.ar-jahr h3 .ar-rueck:hover{text-decoration:underline;text-underline-offset:3px}
+
+/* Jahresrückblick (/rueckblick/<jahr>/, src/pages/rueckblick/[jahr].astro): Luftpost-Brief zum Scrollen */
+.rueckblick::before{content:"";display:block;height:8px;margin:0 calc(-1 * clamp(18px,5vw,56px));background:repeating-linear-gradient(-45deg,#d0292f 0 10px,#fff 10px 20px,#1d3f9a 20px 30px,#fff 30px 40px)}
+.rb-kopf{text-align:center}
+.rb-jahr{font-size:clamp(64px,14vw,120px)!important;line-height:.95!important;letter-spacing:.02em;margin:8px 0 4px!important;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='9' viewBox='0 0 16 9'%3E%3Crect width='16' height='9' fill='%23fbf8f1'/%3E%3Cpath d='M-8 2.5q4-2.7 8 0t8 0t8 0t8 0' fill='none' stroke='%231d3f9a' stroke-width='1.4'/%3E%3Cpath d='M-8 6.5q4-2.7 8 0t8 0t8 0t8 0' fill='none' stroke='%23d0292f' stroke-width='1.4'/%3E%3C/svg%3E") 0 0/16px 9px;
+  -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:1.6px #16295e}
+.rb-unter{font-family:var(--f-hand);font-weight:500;font-size:clamp(21px,2.6vw,25px);color:#22345f;margin:4px 0 0}
+.rb-zahlen{list-style:none;margin:26px 0 8px;padding:0;display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.rb-zahlen li{font-family:var(--f-mono);font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:12px;padding:8px 14px;text-align:center;min-width:72px}
+.rb-zahlen b{display:block;font-family:var(--f-display);font-weight:400;font-size:28px;line-height:1.1;color:var(--ink)}
+.rb-teil{margin-top:40px}
+.rb-h{font-family:var(--f-mono);font-weight:500;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--amber);margin:0 0 14px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.rb-marken{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:22px 18px}
+.rb-marken li{text-align:center}
+.rb-marken svg{display:block;width:100%;max-width:130px;height:auto;margin:0 auto 6px;filter:drop-shadow(0 2px 3px rgba(60,40,10,.28))}
+.rb-marken li:nth-child(odd) svg{transform:rotate(-2deg)}.rb-marken li:nth-child(even) svg{transform:rotate(2deg)}
+.rb-marken .loch circle{fill:#fff}
+.rb-mname{display:block;font-family:var(--f-display);font-size:18px}
+.rb-mort{display:block;font-family:var(--f-mono);font-size:10.5px;color:var(--muted)}
+.rb-neu{display:inline-block;margin-top:5px;background:#d0292f;color:#fff;font:600 9.5px/1 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;padding:3px 6px 2px;border-radius:2px}
+.rb-reisen{list-style:none;margin:0;padding:0;display:grid;gap:14px}
+.rb-reisen b{display:block;font-family:var(--f-display);font-weight:400;font-size:22px}
+.rb-reisen .d{display:block;font-family:var(--f-mono);font-size:11.5px;color:var(--muted);margin-top:2px}
+.rb-route{display:block;font-family:var(--f-hand);font-weight:500;font-size:20px;color:#22345f;margin-top:4px}
+.rb-zettel{position:relative;margin-top:44px}
+.rb-fotos{list-style:none;margin:0;padding:0;columns:180px;column-gap:20px}
+.rb-fotos li{break-inside:avoid;margin:0 0 24px}
+a.fw-foto{text-decoration:none}
+.rb-monat h3{font-family:var(--f-mono);font-weight:500;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:#c0252b;margin:18px 0 4px}
+.rb-monat ul,.rb-gedanken{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.rb-monat a{display:grid;grid-template-columns:34px minmax(0,1fr);gap:8px;align-items:baseline;border-radius:10px;padding:8px 10px;color:var(--ink);text-decoration:none}
+.rb-monat a:hover{background:rgba(28,36,51,.06)}
+.rb-monat b{display:block;font-family:var(--f-display);font-weight:400;font-size:19px}
+.rb-monat .d,.rb-gedanken .d{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.rb-gedanken a{font-family:var(--f-display);font-size:19px;color:var(--ink)}
+.rb-ende{margin:48px 0 0;text-align:center;font-family:var(--f-hand);font-weight:500;font-size:26px;color:#22345f}
+/* Spalten (Fotowand, Rückblick): jedes Polaroid als ganzer Block mit Platz für den Klebestreifen, sonst bleibt beim
+   Spaltenumbruch der Streifen allein am Ende der vorigen Spalte stehen */
+.fw-wand li,.rb-fotos li{display:inline-block;width:100%;padding-top:10px;box-sizing:border-box}
+@media (max-width:640px){.rb-marken{grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 12px}.rb-mname{font-size:15px}.rb-mort{font-size:9.5px}.rb-zahlen li{min-width:0;padding:7px 11px}.rb-zahlen b{font-size:24px}}
+
+/* Feste Kartengröße im Postkarten-Format DIN A6 (148 × 105 mm): die Vorderseite gibt die Höhe vor (aspect-ratio), die
+   Rückseite liegt deckungsgleich darüber. Was nicht passt, wird gekürzt: Eyebrow, Titel und Ort/Datum höchstens 2 Zeilen,
+   der Auszug bekommt den restlichen Platz (Zeilenzahl setzt auszugKuerzen() in globus.js, endet mit „…“), die Liste
+   der Zuhause-Karte scrollt innen. */
+.pc-vorne{aspect-ratio:148/105}
+.pc-vorne > .pc-in{height:100%;box-sizing:border-box;grid-template-rows:minmax(0,1fr) auto;overflow:hidden}
+.pc-vorne .pc-body{display:flex;flex-direction:column;gap:6px;min-height:0;overflow:hidden}
+.pc-vorne .pa{align-self:flex-start;flex:none}
+.pc-vorne .pc-eyebrow,.pc-vorne .pc-body h2,.pc-vorne .pc-meta{flex:none;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.pc-vorne .pc-ex{flex:1 1 0;min-height:0;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden}
+.pc-vorne .pc-ex[hidden]{display:none}
+.postcard.heim .pc-vorne > .pc-in{grid-template-rows:auto minmax(0,1fr)}
+.postcard.heim .pc-actions{min-height:0;overflow:hidden;align-items:stretch}
+.postcard.heim .heim-liste{max-height:100%}
