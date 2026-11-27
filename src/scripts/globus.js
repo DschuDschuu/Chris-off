@@ -1,7 +1,7 @@
 /* Weltkugel des Reisetagebuchs.
    modus 'home'  : Startseite mit allen Funktionen (Postkarten, Zoom, Fog of War, Gedanken …)
    modus 'lesen' : ruhiger, gedimmter Hintergrund für Eintrags- und Gedankenseiten */
-import { geoOrthographic, geoPath, geoGraticule10, geoCircle, geoDistance, geoInterpolate, geoCentroid, geoBounds, geoEquirectangular, geoContains } from 'd3-geo';
+import { geoOrthographic, geoPath, geoGraticule10, geoCircle, geoDistance, geoInterpolate, geoCentroid, geoBounds, geoEquirectangular, geoContains, geoMercator, geoArea } from 'd3-geo';
 import { easeCubicInOut } from 'd3-ease';
 import { feature, mesh } from 'topojson-client';
 
@@ -14,6 +14,9 @@ export async function startGlobus(cfg = {}) {
   const DATA = JSON.parse($('#tb-daten').textContent);
   const ENTRIES = DATA.eintraege, POEMS = DATA.gedichte;
   const EBY = Object.fromEntries(ENTRIES.map((e) => [e.id, e]));
+  // Zeitpunkt (ms, UTC-Mitternacht) für die Zeitreise; Gedanken ohne Datum gelten als „schon immer da“
+  for (const e of ENTRIES) e.ts = Date.parse(e.iso);
+  for (const q of POEMS) q.ts = q.iso ? Date.parse(q.iso) : -Infinity;
   // Zuhause: Einträge „von zuhause“ teilen sich einen Haus-Pin statt vieler Pins an einer Stelle
   const HOME = DATA.zuhause || null, HEIM = ENTRIES.filter((e) => e.zuhause);
   let hoverHome = false;
@@ -22,6 +25,7 @@ export async function startGlobus(cfg = {}) {
   const RIDX = Object.fromEntries(REISEN.map((r, i) => [r.id, i]));
   for (const r of REISEN) r.st.forEach((e, i) => { e.nr = i + 1; e.von = r.st.length; e.reiseTitel = r.titel; });
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let zr = null; // laufende Zeitreise (siehe „Zeitreise“ unten), sonst null
   const cv = $('#globe'), ctx = cv.getContext('2d');
   const toastEl = $('#toast');
   let toastT;
@@ -54,7 +58,9 @@ export async function startGlobus(cfg = {}) {
   }
   const VISITED = [...new Set(ENTRIES.map((e) => e.cid).filter(Boolean))];
   const CNAME = {}; ENTRIES.forEach((e) => { if (e.cid && !CNAME[e.cid]) CNAME[e.cid] = e.land; });
-  const visited = { type: 'FeatureCollection', features: C110.filter((f) => VISITED.includes(String(f.id))) };
+  // besuchte Länder (Färbung); während der Zeitreise nur die bis zum aktuellen Datum (zrAnwenden)
+  const VISITED_FC = { type: 'FeatureCollection', features: C110.filter((f) => VISITED.includes(String(f.id))) };
+  let visited = VISITED_FC;
 
   function nightCircle() {
     const d = new Date(), day = (Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - Date.UTC(d.getUTCFullYear(), 0, 0)) / 864e5;
@@ -62,8 +68,8 @@ export async function startGlobus(cfg = {}) {
     return geoCircle().center([lon + 180, -decl]).radius(90)();
   }
   let night = nightCircle(); setInterval(() => (night = nightCircle()), 60000);
-  // Spur (Fußspuren, Nebel entlang der Route) nur zwischen Stationen derselben Reise: [von, nach, Reise-Index]
-  const routeSegsLL = REISEN.flatMap((r, t) => r.st.slice(1).map((e, i) => [[r.st[i].lon, r.st[i].lat], [e.lon, e.lat], t]));
+  // Spur (Fußspuren, Nebel entlang der Route) nur zwischen Stationen derselben Reise: [von, nach, Reise-Index, Datum von, Datum nach]
+  const routeSegsLL = REISEN.flatMap((r, t) => r.st.slice(1).map((e, i) => [[r.st[i].lon, r.st[i].lat], [e.lon, e.lat], t, r.st[i].ts, e.ts]));
 
   /* ---------- Fog of War ---------- */
   // MAXZ: stärkster Zoom (ca. 100 km Ausschnitt), ORT_KM: Ausschnitt beim Klick auf einen Eintrag
@@ -93,13 +99,15 @@ export async function startGlobus(cfg = {}) {
   const T1 = makeTex(2.2, 2.4, 11.3, 5, 2.2), T2 = makeTex(5, 3, 47.9, 4, 0);
   function samp(t, u, v) { u = ((u % TW) + TW) % TW; if (v < 0) v = 0; if (v > TH - 1.001) v = TH - 1.001; const i = u | 0, j = v | 0, fu = u - i, fv = v - j, i2 = (i + 1) % TW, j2 = j + 1; const a = t[j * TW + i], b = t[j * TW + i2], c = t[j2 * TW + i], d = t[j2 * TW + i2]; return a + (b - a) * fu + (c - a) * fv + (a - b - c + d) * fu * fv; }
   const toV3 = ([lo, la]) => { const a = (la * Math.PI) / 180, b = (lo * Math.PI) / 180; return [Math.cos(a) * Math.cos(b), Math.cos(a) * Math.sin(b), Math.sin(a)]; };
-  const entV = ENTRIES.map((e) => toV3([e.lon, e.lat])), REVr = REV_KM / EARTH, FEA = REVr * 0.6, cosOut = Math.cos(REVr + FEA), FEH = HW * 1.6;
-  const segs = [];
-  for (const [a, b] of routeSegsLL) {
+  // entV/segs: Nebel-Freiflächen um Orte und entlang der Spur; während der Zeitreise nur bis zum aktuellen Datum (zrAnwenden)
+  const ENTV_ALLE = ENTRIES.map((e) => toV3([e.lon, e.lat])), REVr = REV_KM / EARTH, FEA = REVr * 0.6, cosOut = Math.cos(REVr + FEA), FEH = HW * 1.6;
+  const SEGS_ALLE = [];
+  for (const [a, b, , t0, t1] of routeSegsLL) {
     const A = toV3(a), B = toV3(b);
     const n = [A[1] * B[2] - A[2] * B[1], A[2] * B[0] - A[0] * B[2], A[0] * B[1] - A[1] * B[0]], l = Math.hypot(n[0], n[1], n[2]);
-    if (l > 1e-9) segs.push([A, B, n.map((v) => v / l)]);
+    if (l > 1e-9) SEGS_ALLE.push({ v: [A, B, n.map((v) => v / l)], a, b, t0, t1, km: geoDistance(a, b) * EARTH });
   }
+  let entV = ENTV_ALLE, segs = SEGS_ALLE.map((x) => x.v);
   const fogSm = document.createElement('canvas'), fsx = fogSm.getContext('2d'); let fogImg = null;
   let fogQ = innerWidth < 760 ? 0.75 : 1, fogEma = 5, fogTick = 0;
   function drawFog(now, Rr) {
@@ -285,7 +293,7 @@ export async function startGlobus(cfg = {}) {
     fotoStapel = [];
     if (modus === 'home' && Rr > 15 * Math.min(w, h) && !fly) {
       for (const e of ENTRIES) { // ENTRIES: neueste zuerst → erster einer Gruppe ist der neueste
-        if (!e.bild || e.zuhause || geoDistance([e.lon, e.lat], center) > 1.2) continue;
+        if (!e.bild || e.zuhause || (zr && e.ts > zr.cut) || geoDistance([e.lon, e.lat], center) > 1.2) continue;
         const [x, y] = proj([e.lon, e.lat]); if (x < -60 || x > w + 60 || y < -20 || y > h + 90) continue;
         // 72 px ≈ ein schräges Polaroid: liegen Pins näher beieinander, würden sich die Fotos überlappen → Stapel
         const g = fotoStapel.find((st) => Math.hypot(st.x - x, st.y - y) < 72); if (g) g.es.push(e); else fotoStapel.push({ e, es: [e], x, y });
@@ -442,6 +450,7 @@ export async function startGlobus(cfg = {}) {
     // Zeit seit dem letzten Bild (max. 0,1 s, damit nach einem Tab-Wechsel nichts springt)
     const dt = poemT === null ? 0 : Math.max(0, Math.min(0.1, t - poemT)); poemT = t;
     POEMS.forEach((p, i) => {
+      if (zr && p.ts > zr.cut) return; // Zeitreise: Gedanken erst ab ihrem Datum
       if (letterPoem === i) return; const hov = hoverPoem === i, st = poemKind(i);
       if (st === 'plane') {
         // Position auf der Umlaufbahn fortschreiben statt aus der Gesamtzeit zu berechnen:
@@ -470,7 +479,7 @@ export async function startGlobus(cfg = {}) {
     REISEN.forEach((r, t) => {
       const S = routeSegsLL.filter((sg) => sg[2] === t), cum = [0];
       for (const [a, b] of S) cum.push(cum[cum.length - 1] + geoDistance(a, b)); const D = cum[cum.length - 1]; if (!D) return;
-      for (let j = 0; j * FS0 <= D; j++) { const d = j * FS0; let si = 0; while (si < S.length - 1 && cum[si + 1] < d) si++; const [a, b] = S[si], L = cum[si + 1] - cum[si] || 1e-9, ip = geoInterpolate(a, b), f = Math.min(1, (d - cum[si]) / L); out.push({ q: ip(f), q2: ip(Math.min(1, f + 0.002)), q0: f > 0.998 ? ip(f - 0.002) : null, along: d / D, t }); }
+      for (let j = 0; j * FS0 <= D; j++) { const d = j * FS0; let si = 0; while (si < S.length - 1 && cum[si + 1] < d) si++; const sg = S[si], [a, b] = sg, L = cum[si + 1] - cum[si] || 1e-9, ip = geoInterpolate(a, b), f = Math.min(1, (d - cum[si]) / L); out.push({ q: ip(f), q2: ip(Math.min(1, f + 0.002)), q0: f > 0.998 ? ip(f - 0.002) : null, along: d / D, t, zeit: sg[3] + (sg[4] - sg[3]) * f }); }
     });
     return out;
   })();
@@ -481,7 +490,7 @@ export async function startGlobus(cfg = {}) {
   function drawStepLevel(L, mul, now, Rr, center, k, hl, base) {
     const step = 1 << L, phase = reduce ? -1 : (now / 1000 / 10) % 1;
     for (let j = 0; j < STEPS.length; j += step) {
-      const s = STEPS[j]; if (geoDistance(s.q, center) > 1.48) continue; const [x, y] = proj(s.q); if (x < -20 || y < -20 || x > w + 20 || y > h + 20) continue;
+      const s = STEPS[j]; if ((zr && s.zeit > zr.cut) || geoDistance(s.q, center) > 1.48) continue; const [x, y] = proj(s.q); if (x < -20 || y < -20 || x > w + 20 || y > h + 20) continue;
       let ang; if (s.q0) { const [x0, y0] = proj(s.q0); ang = Math.atan2(y - y0, x - x0); } else { const [x2, y2] = proj(s.q2); ang = Math.atan2(y2 - y, x2 - x); }
       const side = (j >> L) & 1 ? 1 : -1; let al = 0.62; if (phase >= 0) { const dd = (((s.along - phase) % 1) + 1.5) % 1 - 0.5; if (dd <= 0 && dd > -0.1) al = 0.62 + 0.38 * (1 + dd / 0.1); else if (dd > 0 && dd < 0.012) al = 1; }
       if (hl !== null) { const mine = s.t === hl; ctx.fillStyle = mine ? HL_COLOR : base; al = mine ? Math.min(1, al * 1.4) : al * 0.35; }
@@ -541,6 +550,7 @@ export async function startGlobus(cfg = {}) {
   const pc = $('#postcard');
   function drawFrame(now) {
     for (const k of ['R', 'cx', 'cy']) { const d = tgt[k] - cur[k]; cur[k] = Math.abs(d) < 0.25 ? tgt[k] : cur[k] + d * 0.07; }
+    if (zr) zrSchritt(now);
     if (fly) {
       const k = Math.min(1, (now - fly.t0) / fly.dur), e = easeCubicInOut(Math.max(0, k)); rot = fly.from.map((v, i) => v + (fly.to[i] - v) * e);
       zoom = Math.max(0.8, Math.exp(Math.log(fly.z0) + (Math.log(fly.z1) - Math.log(fly.z0)) * e - fly.dip * Math.sin(Math.PI * e))); setTarget(); cur.R = tgt.R; if (k >= 1) fly = null;
@@ -580,9 +590,10 @@ export async function startGlobus(cfg = {}) {
     fotoLayout(Rr, center, now);
     if (modus === 'home') drawOrte(Rr, center);
     drawSteps(now, G, Rr, center);
-    if (HOME && HEIM.length && geoDistance([HOME.lon, HOME.lat], center) < 1.5) drawHome(now);
+    if (HOME && HEIM.length && (!zr || HEIM.some((e) => e.ts <= zr.cut)) && geoDistance([HOME.lon, HOME.lat], center) < 1.5) drawHome(now);
     for (const e of ENTRIES) {
-      if (e.zuhause || geoDistance([e.lon, e.lat], center) > 1.5) continue; const [x, y] = proj([e.lon, e.lat]); const isA = e === active;
+      if (e.zuhause || (zr && e.ts > zr.cut) || geoDistance([e.lon, e.lat], center) > 1.5) continue; const [x, y] = proj([e.lon, e.lat]); const isA = e === active;
+      if (zr) zrPinEffekt(e, x, y, now);
       if (isA) { const p = (now % 1800) / 1800; ctx.beginPath(); ctx.arc(x, y, 6 + p * 22, 0, 7); ctx.strokeStyle = `rgba(242,165,65,${1 - p})`; ctx.lineWidth = 2; ctx.stroke(); }
       ctx.beginPath(); ctx.arc(x, y, isA ? 6 : 4, 0, 7); ctx.fillStyle = isA ? '#ec8a1e' : '#ffffff'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#1c2433'; ctx.stroke();
       if (modus === 'home' && ((e === hoverE && e !== cardE) || (isA && !fly && !cardE))) { ctx.font = '500 12px "IBM Plex Mono", monospace'; ctx.fillStyle = '#1c2433'; const hv = e === hoverE; ctx.textAlign = hv ? 'left' : 'right'; ctx.fillText(e.ort.toUpperCase(), hv ? x + 12 : x - 14, y + 4); ctx.textAlign = 'left'; }
@@ -650,6 +661,7 @@ export async function startGlobus(cfg = {}) {
   function pinAt(px, py, rad) { const center = [-rot[0], -rot[1]]; let best = null, bd = rad; for (const e of ENTRIES) { if (e.zuhause || geoDistance([e.lon, e.lat], center) > 1.5) continue; const [x, y] = proj([e.lon, e.lat]), d = Math.hypot(px - x, py - y); if (d < bd) { bd = d; best = e; } } return best; }
   function pinsNear(px, py, rad) { const center = [-rot[0], -rot[1]]; return ENTRIES.filter((e) => { if (e.zuhause || geoDistance([e.lon, e.lat], center) > 1.5) return false; const [x, y] = proj([e.lon, e.lat]); return Math.hypot(px - x, py - y) < rad; }); }
   cv.addEventListener('click', (ev) => {
+    if (zr) return; // Zeitreise: Globus nur drehen/zoomen, keine Postkarten
     if (dragMoved) { dragMoved = false; return; }
     const pi = poemAt(ev.clientX, ev.clientY, 12); if (pi !== null) { const q = poemPos.find((q) => q.i === pi); openLetter(pi, q ? [q.x, q.y] : null); return; }
     if (homeAt(ev.clientX, ev.clientY, 16)) { openHome(); return; }
@@ -674,7 +686,7 @@ export async function startGlobus(cfg = {}) {
     ptrs.set(ev.pointerId, [ev.clientX, ev.clientY]);
     if (pinch && ptrs.size === 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (d > 0) setZoom((pinch.z * d) / pinch.d); dragMoved = true; return; }
     if (drag) {
-      const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y; if (!dragMoved && Math.hypot(dx, dy) < 5) return; dragMoved = true; fly = null; cv.classList.add('dragging');
+      const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y; if (!dragMoved && Math.hypot(dx, dy) < 5) return; dragMoved = true; fly = null; cv.classList.add('dragging'); if (zr) zr.ziehen = performance.now();
       const k = 180 / (Math.PI * cur.R), now = performance.now(), dt = Math.max(8, now - drag.t); rot[0] += dx * k; rot[1] = Math.max(-85, Math.min(85, rot[1] - dy * k));
       vel = [((dx * k) / dt) * 16, ((-dy * k) / dt) * 16]; drag = { x: ev.clientX, y: ev.clientY, t: now };
     }
@@ -820,6 +832,82 @@ export async function startGlobus(cfg = {}) {
   $('#ltClose').onclick = closeLetter;
   $('#letterWrap').addEventListener('click', (ev) => { if (ev.target === $('#letterWrap')) closeLetter(); });
 
+  /* ---------- Zeitreise: alles läuft der Reihe nach auf dem Globus ab ---------- */
+  // ▶ in der Knopfleiste startet sie. Jedes Datum mit Einträgen bekommt gleich viel Zeit (Monate ohne Einträge laufen
+  // schnell durch); dazwischen zählt das Datum gleichmäßig weiter, so laufen die Fußspuren zwischen zwei Stationen mit.
+  // Pins, Nebel-Freiflächen, Fußspuren, besuchte Länder, Fotos und Gedanken zeigen nur, was bis dahin passiert ist.
+  // Der Globus bleibt in der Weltansicht und dreht sich sanft zum jeweils neuen Ort; Ziehen hält das Drehen kurz an.
+  const ZR_TAGE = [...new Set(ENTRIES.map((e) => e.ts).filter(Number.isFinite))].sort((a, b) => a - b);
+  const zrEl = $('#zeitreise');
+  const zrCut = (u) => { const n = ZR_TAGE.length; if (n < 2) return ZR_TAGE[0] ?? 0; const p = u * (n - 1), i = Math.min(n - 2, Math.floor(p)); return ZR_TAGE[i] + (ZR_TAGE[i + 1] - ZR_TAGE[i]) * (p - i); };
+  function zrAnwenden(cut) {
+    const da = ENTRIES.filter((e) => e.ts <= cut);
+    entV = da.map((e) => toV3([e.lon, e.lat]));
+    segs = []; let km = 0;
+    for (const x of SEGS_ALLE) {
+      if (cut <= x.t0) continue;
+      if (cut >= x.t1) { segs.push(x.v); km += x.km; continue; }
+      const f = (cut - x.t0) / (x.t1 - x.t0 || 1); segs.push([x.v[0], toV3(geoInterpolate(x.a, x.b)(f)), x.v[2]]); km += x.km * f;
+    }
+    const ids = new Set(da.map((e) => e.cid).filter(Boolean));
+    visited = { type: 'FeatureCollection', features: C110.filter((f) => ids.has(String(f.id))) }; baseKey = '';
+    const heim = da.some((e) => e.zuhause);
+    return { da, orte: da.filter((e) => !e.zuhause).length + (heim ? 1 : 0), laender: ids.size, km };
+  }
+  function zrAlles() { entV = ENTV_ALLE; segs = SEGS_ALLE.map((x) => x.v); visited = VISITED_FC; baseKey = ''; }
+  function zrSetze(u, now = performance.now()) {
+    zr.u = u; const cut = zrCut(u); if (cut === zr.cut) return; zr.cut = cut;
+    const st = zrAnwenden(cut); zr.zahlen = st;
+    // neu erschienene Orte: kurz hervorheben, Kamera dreht zum neuesten; beim Zurückspulen verschwinden sie wieder
+    for (const e of st.da) if (!zr.gesehen.has(e)) { zr.gesehen.add(e); zr.neu.set(e, now); if (!zr.ziel || e.ts >= zr.ziel.ts) zr.ziel = e; }
+    for (const e of zr.gesehen) if (e.ts > cut) { zr.gesehen.delete(e); zr.neu.delete(e); }
+    if (zr.ziel && zr.ziel.ts > cut) zr.ziel = st.da.reduce((a, e) => (!a || e.ts > a.ts ? e : a), null);
+    zrUI();
+  }
+  function zrSchritt(now) {
+    if (zr.spielt) { const u = Math.min(1, zr.u0 + Math.max(0, now - zr.t0) / zr.dauer); zrSetze(u, now); if (u >= 1) { zr.spielt = false; zrUI(); } }
+    const z = zr.ziel;
+    if (z && !fly && !drag && now - zr.ziehen > 2500) {
+      const off = 8 / Math.max(1, zoom); let dl = -z.lon - rot[0]; dl = ((((dl + 180) % 360) + 360) % 360) - 180;
+      rot[0] += dl * 0.035; rot[1] += (-z.lat + off - rot[1]) * 0.035; vel = [0, 0];
+    }
+  }
+  // gerade erschienener Ort: wachsender Ring und für ein paar Sekunden der Ortsname
+  function zrPinEffekt(e, x, y, now) {
+    const seit = zr.neu.get(e); if (seit === undefined) return; const t = (now - seit) / 2200; if (t >= 1) { zr.neu.delete(e); return; }
+    if (!reduce) { ctx.beginPath(); ctx.arc(x, y, 6 + t * 26, 0, 7); ctx.strokeStyle = `rgba(236,138,30,${1 - t})`; ctx.lineWidth = 2.5; ctx.stroke(); }
+    ctx.globalAlpha = Math.min(1, (1 - t) * 3); ctx.font = '600 12px "IBM Plex Mono", monospace'; ctx.fillStyle = '#1c2433'; ctx.fillText(ohneBei(e.ort).toUpperCase(), x + 12, y - 8); ctx.globalAlpha = 1;
+  }
+  function zrUI() {
+    if (!zr || !zrEl) return;
+    const knopf = $('#zrPlay'), ende = zr.u >= 1 && !zr.spielt;
+    knopf.textContent = zr.spielt ? '⏸' : ende ? '↺' : '▶'; knopf.setAttribute('aria-label', zr.spielt ? 'Anhalten' : ende ? 'Nochmal von vorn' : 'Weiter abspielen');
+    $('#zrRegler').value = String(Math.round(zr.u * 1000));
+    $('#zrDatum').textContent = Number.isFinite(zr.cut) ? new Date(zr.cut).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : '';
+    const z = zr.zahlen; if (z) $('#zrZahlen').textContent = `${z.orte} ${z.orte === 1 ? 'Ort' : 'Orte'} · ${z.laender} ${z.laender === 1 ? 'Land' : 'Länder'}${z.km >= 1 ? ` · ${Math.round(z.km).toLocaleString('de-DE')} km` : ''}`;
+  }
+  function zrStart() {
+    if (ZR_TAGE.length < 2 || !zrEl) return;
+    if (letterPoem !== null) closeLetter(); archivZu(false); closeCard(true); $('#ctyPop').hidden = true; active = null; hoverE = null;
+    const erster = ENTRIES.reduce((a, e) => (e.ts < a.ts ? e : a), ENTRIES[0]);
+    zr = { u: 0, u0: 0, cut: -Infinity, spielt: true, t0: performance.now() + 1300, dauer: Math.max(8000, Math.min(30000, ZR_TAGE.length * 1400)), gesehen: new Set(), neu: new Map(), ziel: null, ziehen: 0, zahlen: null };
+    zrSetze(0); vel = [0, 0]; flyTo(erster, 1300, false, false, 1);
+    // Body-Klasse „zr-aktiv“, nicht „zeitreise“: so heißt die Leiste selbst (CSS)
+    document.body.classList.add('zr-aktiv'); zrEl.hidden = false; zrUI(); $('#zrPlay').focus();
+  }
+  function zrPlayPause() {
+    if (!zr) return;
+    if (zr.spielt) zr.spielt = false;
+    else { if (zr.u >= 1) { zr.gesehen.clear(); zr.neu.clear(); zr.ziel = null; zr.cut = -Infinity; zrSetze(0); } zr.u0 = zr.u; zr.t0 = performance.now(); zr.spielt = true; }
+    zrUI();
+  }
+  function zrEnde() { if (!zr) return; zr = null; zrAlles(); document.body.classList.remove('zr-aktiv'); if (zrEl) zrEl.hidden = true; $('#zrBtn')?.focus(); }
+  if (modus === 'home' && zrEl) {
+    if (ZR_TAGE.length < 2) $('#zrBtn').hidden = true; // mit nur einem Datum gibt es nichts abzuspielen
+    $('#zrBtn').onclick = zrStart; $('#zrPlay').onclick = zrPlayPause; $('#zrZu').onclick = zrEnde;
+    $('#zrRegler').addEventListener('input', (ev) => { if (!zr) return; zr.spielt = false; zrSetze(Number(ev.target.value) / 1000); zrUI(); });
+  }
+
   /* ---------- Leiste unten: Statistik, Listen, Extras ---------- */
   let km = 0; for (const [a, b] of routeSegsLL) km += geoDistance(a, b) * EARTH; // nur Strecken innerhalb von Reisen
   const pct = (exploredArea() / (4 * Math.PI * EARTH * EARTH)) * 100;
@@ -846,18 +934,54 @@ export async function startGlobus(cfg = {}) {
   $('#arClose').onclick = () => archivZu();
   archiv.addEventListener('click', (ev) => { if (ev.target === archiv) archivZu(); });
   $('#skipList').onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); archivAuf(); };
+  // Briefmarkenalbum (statt der Länderliste): je besuchtem Land eine Marke mit dem Landesumriss und einem Poststempel
+  // vom ersten Besuch, sortiert nach erstem Besuch. Umriss aus der genauen Form (mit Inseln wie Mallorca), solange die
+  // lädt aus der groben; Teile weiter als ca. 900 km vom größten Stück fallen weg (Azoren, Kanaren, Französisch-Guayana),
+  // sonst wäre das Land auf der Marke winzig – Mallorca, Sizilien & Co. bleiben drauf.
+  // Darunter klein „x % erkundet“ (wie bisher die Länderliste). Antippen einer Marke fliegt zum neuesten Eintrag dort.
+  const MARKEN_FARBEN = ['#1d3f9a', '#b8322a', '#2a7f62', '#a8741a', '#6b4c9a', '#00838f', '#b5446e', '#4f5d75'];
+  function hauptteile(f) {
+    const g = f.geometry; if (!g || g.type !== 'MultiPolygon' || g.coordinates.length < 2) return f;
+    const teile = g.coordinates.map((c) => { const p = { type: 'Polygon', coordinates: c }; return { c, a: geoArea(p), m: geoCentroid(p) }; });
+    const gross = teile.reduce((x, y) => (y.a > x.a ? y : x));
+    return { type: 'Feature', geometry: { type: 'MultiPolygon', coordinates: teile.filter((t) => geoDistance(t.m, gross.m) < 0.14).map((t) => t.c) } };
+  }
+  function markeSVG(id, erste) {
+    const f = L10.get(id) || C110.find((x) => String(x.id) === id); if (!f) return '';
+    const farbe = MARKEN_FARBEN[[...id].reduce((a, ch) => a + ch.charCodeAt(0), 0) % MARKEN_FARBEN.length];
+    const W = 120, H = 150, teile = hauptteile(f), name = (CNAME[id] || '').toUpperCase();
+    let d = ''; try { d = geoPath(geoMercator().fitExtent([[22, 22], [W - 22, H - 44]], teile))(teile) || ''; } catch (_) {}
+    let loch = ''; for (let x = 5; x < W; x += 10) loch += `<circle cx="${x}" cy="0" r="3.2"/><circle cx="${x}" cy="${H}" r="3.2"/>`; for (let y = 5; y < H; y += 10) loch += `<circle cx="0" cy="${y}" r="3.2"/><circle cx="${W}" cy="${y}" r="3.2"/>`;
+    const sx = W - 34, sy = H - 50, ort = ohneBei(erste.ort || '').toUpperCase().slice(0, 18);
+    const tag = new Date(erste.ts).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'UTC' });
+    return `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true">`
+      + `<rect width="${W}" height="${H}" fill="#fffdf7"/><g class="loch">${loch}</g>`
+      + `<rect x="9" y="9" width="${W - 18}" height="${H - 18}" fill="${farbe}" fill-opacity=".07" stroke="${farbe}" stroke-width="2"/>`
+      + `<path d="${d}" fill="${farbe}" fill-opacity=".82" stroke="${farbe}" stroke-width=".6" stroke-linejoin="round"/>`
+      + `<text x="${W / 2}" y="${H - 20}" text-anchor="middle" class="m-name" fill="${farbe}">${esc(name.length > 16 ? name.slice(0, 15) + '.' : name)}</text>`
+      + `<g class="stempel" transform="rotate(-14 ${sx} ${sy})"><path class="wellen" d="M ${sx - 78} ${sy - 7} q 6 -4 12 0 t 12 0 t 12 0 t 12 0 t 12 0 M ${sx - 78} ${sy} q 6 -4 12 0 t 12 0 t 12 0 t 12 0 t 12 0 M ${sx - 78} ${sy + 7} q 6 -4 12 0 t 12 0 t 12 0 t 12 0 t 12 0"/>`
+      + `<circle cx="${sx}" cy="${sy}" r="24" class="ring"/><circle cx="${sx}" cy="${sy}" r="16.5" class="ring"/>`
+      + `<path id="pm-${id}" d="M ${sx - 20.3} ${sy} A 20.3 20.3 0 0 1 ${sx + 20.3} ${sy}" fill="none"/>`
+      + `<text class="m-ort"><textPath href="#pm-${id}" startOffset="50%" text-anchor="middle">${esc(ort)}</textPath></text>`
+      + `<text x="${sx}" y="${sy + 2.5}" text-anchor="middle" class="m-tag">${tag}</text></g></svg>`;
+  }
   function renderCty() {
-    // genaue Formen nachladen (genaueFormDa rendert dann neu); bis dahin „…“ statt einer Zahl, die gleich springt
+    // genaue Formen nachladen (genaueFormDa rendert dann neu); bis dahin grober Umriss und „…“ statt einer Zahl, die gleich springt
     VISITED.forEach((id) => { if (!L10.has(id)) land10Holen(id); });
-    const rows = VISITED.map((id) => ({ id, n: CNAME[id], st: L10.get(id) === null ? null : countryStat(id) })).sort((a, b) => (b.st ? b.st.pct : -1) - (a.st ? a.st.pct : -1));
-    $('#ctyList').innerHTML = `<li class="sep">Fog of War pro Land</li>` + rows.map((r) => `<li><button class="cty" data-c="${r.id}"><span>${esc(r.n)}</span><span class="cm"><i style="width:${r.st ? Math.max(2, r.st.pct) : 0}%"></i></span><span class="d">${r.st ? fmtPct(r.st.pct) : '…'} %</span></button></li>`).join('');
+    const marken = VISITED.map((id) => ({ id, erste: ENTRIES.filter((e) => e.cid === id).reduce((a, e) => (!a || e.ts < a.ts ? e : a), null), st: L10.get(id) === null ? null : countryStat(id) }))
+      .filter((m) => m.erste).sort((a, b) => a.erste.ts - b.erste.ts);
+    $('#ctyPop').classList.add('album');
+    $('#ctyList').innerHTML = `<li class="sep">Briefmarkenalbum · ${marken.length} ${marken.length === 1 ? 'Land' : 'Länder'}</li>` + marken.map((m, i) => {
+      const titel = `${CNAME[m.id] || ''}: zuerst am ${new Date(m.erste.ts).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })} in ${ohneBei(m.erste.ort || '')}`;
+      return `<li><button class="marke" data-c="${m.id}" style="--kipp:${((i * 37) % 7) - 3}deg" aria-label="${esc(titel)}" title="${esc(titel)}">${markeSVG(m.id, m.erste)}<span class="m-unter">${m.st ? fmtPct(m.st.pct) : '…'} % erkundet</span></button></li>`;
+    }).join('');
   }
   $('#ctyList').addEventListener('click', (ev) => { const b = ev.target.closest('[data-c]'); if (!b) return; const e = ENTRIES.find((x) => x.cid === b.dataset.c); $('#ctyPop').hidden = true; if (e) select(e); });
   document.addEventListener('click', (ev) => {
     if (ev.target.closest('#ctyBtn')) { const p = $('#ctyPop'); if (p.hidden) renderCty(); p.hidden = !p.hidden; $('#ctyBtn').setAttribute('aria-expanded', String(!p.hidden)); return; }
     if (!ev.target.closest('#ctyPop')) $('#ctyPop').hidden = true;
   });
-  addEventListener('keydown', (ev) => { if (ev.key !== 'Escape') return; if (letterPoem !== null) return closeLetter(); if (!archiv.hidden) return archivZu(); closeCard(); });
+  addEventListener('keydown', (ev) => { if (ev.key !== 'Escape') return; if (zr) return zrEnde(); if (letterPoem !== null) return closeLetter(); if (!archiv.hidden) return archivZu(); closeCard(); });
   // Heute vor einem Jahr (bzw. vor mehreren Jahren)
   const heute = new Date(), md = `${String(heute.getMonth() + 1).padStart(2, '0')}-${String(heute.getDate()).padStart(2, '0')}`;
   const vorEinemJahr = ENTRIES.filter((e) => e.iso.slice(5) === md && Number(e.iso.slice(0, 4)) < heute.getFullYear());

@@ -17,7 +17,17 @@ const neuester = eintraege[0];
         <button class="btn sm" id="listBtn" aria-haspopup="dialog" aria-controls="archiv">📍 <span class="hide-n">Alle </span>Einträge</button>
         <button class="btn sm" id="otdBtn" hidden>📅 Vor <span class="hide-n">einem</span><span class="show-n">1</span> Jahr</button>
         <button class="btn sm" id="randomBtn">🎲 Zufall</button>
+        <button class="btn sm" id="zrBtn" aria-controls="zeitreise">▶ Zeitreise</button>
       </div>
+    </div>
+    {/* Zeitreise (globus.js): alles läuft der Reihe nach ab; Regler zum Vor- und Zurückspulen */}
+    <div class="zeitreise" id="zeitreise" hidden role="group" aria-label="Zeitreise">
+      <button class="zr-knopf" id="zrPlay" aria-label="Anhalten">⏸</button>
+      <div class="zr-mitte">
+        <div class="zr-kopf"><b id="zrDatum"></b><span id="zrZahlen"></span></div>
+        <input type="range" id="zrRegler" min="0" max="1000" value="0" aria-label="Zeitpunkt" />
+      </div>
+      <button class="zr-knopf zr-zu" id="zrZu" aria-label="Zeitreise beenden">✕</button>
     </div>
     <div class="tc">
       <div class="cbar" id="cbar" hidden aria-live="polite"><div class="cb-top"><b id="cbName"></b><span id="cbPct"></span></div><span class="cb-meter"><i id="cbFill"></i></span><span class="cb-sub" id="cbSub"></span></div>

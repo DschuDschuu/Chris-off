@@ -428,3 +428,36 @@ body.nah .topr{opacity:0;visibility:hidden;position:absolute;right:max(16px, env
 .postcard.stapel{touch-action:pan-y}
 .postcard a,.postcard img{-webkit-user-drag:none}
 /* Blättern im Stapel: Raus- und Rein-Bewegung macht stapelWechsel() in globus.js (Web Animations über „translate“) */
+
+/* ---- Zeitreise (globus.js): Leiste unten statt der Knopfleiste ---- */
+/* body.zr-aktiv (nicht .zeitreise – das ist die Leiste selbst) */
+body.zr-aktiv .dock{opacity:0;pointer-events:none;transform:translate(-50%,16px)}
+body.zr-aktiv #cbar,body.zr-aktiv #worldBtn{display:none!important}
+.zeitreise{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:20;width:min(560px,calc(100vw - 24px));box-sizing:border-box;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:8px 10px;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 28px rgba(20,30,50,.16)}
+.zr-knopf{width:40px;height:40px;border-radius:50%;border:1.5px solid var(--ink);background:#fff;color:var(--ink);font-size:16px;line-height:1;cursor:pointer;display:grid;place-items:center;padding:0}
+.zr-knopf:hover{background:var(--ink);color:#fff}
+.zr-zu{border-color:var(--line);font-size:14px}
+.zr-mitte{display:grid;gap:4px;min-width:0}
+.zr-kopf{display:flex;justify-content:space-between;align-items:baseline;gap:10px;min-width:0}
+.zr-kopf b{font-family:var(--f-display);font-weight:400;font-size:17px;white-space:nowrap}
+.zr-kopf span{font-family:var(--f-mono);font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.zeitreise input[type=range]{width:100%;accent-color:var(--amber,#ec8a1e);margin:0}
+@media (max-width:900px){.zeitreise{bottom:calc(22px + env(safe-area-inset-bottom,0px))}}
+@media (max-width:560px){.zr-kopf{flex-direction:column;align-items:flex-start;gap:0}.zr-kopf b{font-size:16px}.zr-kopf span{font-size:10.5px}}
+
+/* ---- Briefmarkenalbum (statt Länderliste, renderCty in globus.js) ---- */
+.dock:has(.pop:not([hidden])){z-index:30} /* offenes Album über den Zoom-Knöpfen */
+.pop.album{width:min(440px,calc(100vw - 24px));max-height:min(64vh,560px);overflow-y:auto;background:#f3ede0;padding:8px}
+.pop.album ul{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 10px;padding:2px 6px 10px}
+.pop.album .sep{grid-column:1/-1;color:#7a5a2b}
+.pop .marke{display:block;width:100%;padding:0;border-radius:2px;text-align:center;background:none}
+.pop .marke:hover,.pop .marke:focus-visible{background:none}
+.pop .marke svg{width:100%;height:auto;display:block;filter:drop-shadow(0 2px 3px rgba(60,40,10,.28));transform:rotate(var(--kipp,0deg));transition:transform .2s ease}
+.pop .marke:hover svg,.pop .marke:focus-visible svg{transform:rotate(0deg) scale(1.04)}
+.marke .loch circle{fill:#f3ede0}
+.marke .m-name{font:700 8.5px var(--f-mono);letter-spacing:.08em}
+.marke .stempel .ring,.marke .stempel .wellen{fill:none;stroke:rgba(28,36,51,.55);stroke-width:1.1}
+.marke .m-ort{font:600 5.4px var(--f-mono);fill:rgba(28,36,51,.72);letter-spacing:.05em}
+.marke .m-tag{font:700 6.8px var(--f-mono);fill:rgba(28,36,51,.78)}
+.pop .marke .m-unter{display:block;font-family:var(--f-mono);font-size:10.5px;color:var(--muted);margin-top:6px}
+@media (prefers-reduced-motion:reduce){.pop .marke svg{transition:none}}

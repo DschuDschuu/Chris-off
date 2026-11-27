@@ -160,6 +160,7 @@ export async function globusDaten() {
       id: p.id,
       titel: p.data.titel,
       datum: datumDE(p.data.datum),
+      iso: p.data.datum.toISOString().slice(0, 10), // für die Zeitreise
       ort: e?.ort ?? p.data.ort ?? '',
       lat: e?.lat ?? p.data.breite,
       lon: e?.lon ?? p.data.laenge,
