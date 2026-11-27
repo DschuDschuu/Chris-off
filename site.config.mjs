@@ -11,6 +11,6 @@ export default {
   globus: 'hell',
   // Fog of War: freier Umkreis um jeden Ort und halbe Breite der Route (km)
   nebel: { radiusKm: 25, routeKm: 10 },
-  // Gedichte: 'mix' (Küste = Flaschenpost, sonst Papierflieger) | 'flieger' | 'flasche'
+  // Gedanken (Schlüssel heißt weiter „gedichte“): 'mix' (Küste = Flaschenpost, sonst Papierflieger) | 'flieger' | 'flasche'
   gedichte: 'mix',
 };

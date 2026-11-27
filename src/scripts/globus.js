@@ -1,6 +1,6 @@
 /* Weltkugel des Reisetagebuchs.
-   modus 'home'  : Startseite mit allen Funktionen (Postkarten, Zoom, Fog of War, Gedichte …)
-   modus 'lesen' : ruhiger, gedimmter Hintergrund für Eintrags- und Gedichtseiten */
+   modus 'home'  : Startseite mit allen Funktionen (Postkarten, Zoom, Fog of War, Gedanken …)
+   modus 'lesen' : ruhiger, gedimmter Hintergrund für Eintrags- und Gedankenseiten */
 import { geoOrthographic, geoPath, geoGraticule10, geoCircle, geoDistance, geoInterpolate, geoCentroid, geoBounds, geoEquirectangular, geoContains } from 'd3-geo';
 import { easeCubicInOut } from 'd3-ease';
 import { feature, mesh } from 'topojson-client';
@@ -383,10 +383,10 @@ export async function startGlobus(cfg = {}) {
     const st = countryStat(focusC), es = ENTRIES.filter((e) => e.cid === focusC), ps = POEMS.filter((p) => p.eintrag && EBY[p.eintrag]?.cid === focusC);
     $('#cbName').textContent = CNAME[focusC] || ''; $('#cbPct').textContent = `${fmtPct(st.pct)} % erkundet`; $('#cbFill').style.width = '0'; bar.hidden = false;
     setTimeout(() => ($('#cbFill').style.width = Math.max(2, st.pct) + '%'), 60);
-    $('#cbSub').textContent = `${es.length} ${es.length === 1 ? 'Eintrag' : 'Einträge'}${ps.length ? ` · ${ps.length} ${ps.length === 1 ? 'Gedicht' : 'Gedichte'}` : ''} · ${Math.round(st.area).toLocaleString('de-DE')} von ${Math.round(st.total).toLocaleString('de-DE')} km²`;
+    $('#cbSub').textContent = `${es.length} ${es.length === 1 ? 'Eintrag' : 'Einträge'}${ps.length ? ` · ${ps.length} ${ps.length === 1 ? 'Gedanke' : 'Gedanken'}` : ''} · ${Math.round(st.area).toLocaleString('de-DE')} von ${Math.round(st.total).toLocaleString('de-DE')} km²`;
   }
 
-  /* ---------- Gedichte: Papierflieger und Flaschenpost ---------- */
+  /* ---------- Gedanken (früher Gedichte, intern POEMS): Papierflieger und Flaschenpost ---------- */
   const poemStyle = cfg.gedichte || 'mix';
   let POEM_SEA = null, poemPos = [], lastMouse = null, hoverPoem = null, letterPoem = null, poemT = null;
   const ORB = POEMS.map((p, i) => ({ tilt: [-0.35, 0.3, -0.12][i % 3] + (i >> 2) * 0.07, a: [1.18, 1.3, 1.42][i % 3] + (i >> 2) * 0.05, sp: [0.16, -0.12, 0.1][i % 3], ph: i * 2.1 }));
@@ -802,7 +802,7 @@ export async function startGlobus(cfg = {}) {
   function closeCard(keepView) { cardE = null; kartenStapel = null; pc.hidden = true; document.body.classList.remove('karte-offen'); if (focusC || ortZoom) { focusC = null; ortZoom = false; $('#cbar').hidden = true; if (!keepView) flyTo({ lon: -rot[0], lat: -rot[1] }, 1200, false, true, 1); } }
   $('#pcClose').onclick = () => closeCard();
 
-  /* ---------- Gedicht-Brief ---------- */
+  /* ---------- Gedanken-Brief ---------- */
   const L = $('#letter');
   function openLetter(i, from) {
     const p = POEMS[i]; closeCard(true); letterPoem = i; if (p.eintrag && EBY[p.eintrag]) active = EBY[p.eintrag]; flyTo({ lon: p.lon, lat: p.lat }, 1600, false, false, 1);

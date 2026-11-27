@@ -1,17 +1,19 @@
 ---
-import Base from '../../layouts/Base.astro';
-import Gedichte from '../../components/Gedichte.astro';
-import { alleGedichte, alleEintraege, findeEintrag, strophen } from '../../lib/daten';
-
+// Alte Adresse: „Gedichte“ heißen jetzt „Gedanken“ (/gedanken/<id>/). Diese Seite leitet alte Links weiter.
+import { alleGedichte } from '../../lib/daten';
 export async function getStaticPaths() {
-  const liste = await alleGedichte();
-  return liste.map((g) => ({ params: { slug: g.id }, props: { g, liste } }));
+  return (await alleGedichte()).map((g) => ({ params: { slug: g.id } }));
 }
-const { g, liste } = Astro.props;
-const e = findeEintrag(await alleEintraege(), g.data.eintrag);
-const ersteZeilen = strophen(g.body)[0]?.slice(0, 2).join(' / ') ?? '';
-const fokusOrt: [number, number] | null = !e && g.data.laenge != null && g.data.breite != null ? [g.data.laenge, g.data.breite] : null;
+const ziel = `/gedanken/${Astro.params.slug}/`;
 ---
-<Base titel={g.data.titel} beschreibung={ersteZeilen} bereich="gedichte" fokus={e?.id} fokusOrt={fokusOrt} typ="article" bild={e?.data.titelbild}>
-  <Gedichte liste={liste} aktuell={g} />
-</Base>
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <title>Weitergeleitet zu den Gedanken</title>
+    <meta name="robots" content="noindex" />
+    <link rel="canonical" href={ziel} />
+    <meta http-equiv="refresh" content={`0; url=${ziel}`} />
+  </head>
+  <body><p>Dieser Text ist umgezogen: <a href={ziel}>weiter</a>.</p></body>
+</html>

@@ -128,7 +128,7 @@ export function stationVon(reisen: ReiseListe, eintragId: string) {
   return null;
 }
 
-// Gedicht-Text: Strophen durch Leerzeilen, Zeilen durch Zeilenumbrüche getrennt
+// Text eines Gedankens (früher Gedicht): Absätze/Strophen durch Leerzeilen, Zeilen durch Zeilenumbrüche getrennt
 export const strophen = (body = '') =>
   body.trim().split(/\n\s*\n/).map((s) => s.split('\n').map((z) => z.trim()).filter(Boolean)).filter((s) => s.length);
 
@@ -165,7 +165,7 @@ export async function globusDaten() {
       lon: e?.lon ?? p.data.laenge,
       eintrag: e?.id ?? null,
       strophen: strophen(p.body),
-      url: `/gedichte/${p.id}/`,
+      url: `/gedanken/${p.id}/`,
     };
   }).filter((g) => Number.isFinite(g.lat) && Number.isFinite(g.lon));
   // Reisen: Titel, Zeitraum und die Stationen in Reihenfolge (nur IDs, Rest steht bei den Einträgen)
