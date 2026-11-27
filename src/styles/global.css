@@ -72,17 +72,18 @@ body.has-player .dock{bottom:calc(104px + env(safe-area-inset-bottom,0px))}
 .pop button:hover,.pop button[aria-current="true"]{background:rgba(28,36,51,.06)}
 .pop .d{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);white-space:nowrap}
 .reise-zeile{margin:6px 0 0;font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--amber)}
-.postcard{position:fixed;left:0;top:0;z-index:9;width:450px;max-width:calc(100vw - 24px);box-sizing:border-box;padding:10px;border-radius:4px;
-  background:repeating-linear-gradient(-45deg,#d0292f 0 11px,#fbf8f1 11px 22px,#1d3f9a 22px 33px,#fbf8f1 33px 44px);box-shadow:0 20px 46px rgba(20,30,50,.3);
+.postcard{position:fixed;left:0;top:0;z-index:9;width:450px;max-width:calc(100vw - 24px);box-sizing:border-box;perspective:1600px;
   transform:rotate(-1.5deg);transition:opacity .25s ease}
+/* Zwei Seiten mit Luftpost-Rahmen; .pc-dreh dreht sich (.postcard.gedreht), die Rückseite liegt deckungsgleich dahinter */
+.pc-dreh{position:relative;transform-style:preserve-3d;transition:transform .6s cubic-bezier(.3,.7,.25,1)}
+.postcard.gedreht .pc-dreh{transform:rotateY(180deg)}
+.pc-dreh.sofort{transition:none}
+.pc-seite{box-sizing:border-box;padding:10px;border-radius:4px;background:repeating-linear-gradient(-45deg,#d0292f 0 11px,#fbf8f1 11px 22px,#1d3f9a 22px 33px,#fbf8f1 33px 44px);box-shadow:0 20px 46px rgba(20,30,50,.3);-webkit-backface-visibility:hidden;backface-visibility:hidden}
+.pc-hinten{position:absolute;inset:0;transform:rotateY(180deg)}
 .postcard.away{opacity:0;pointer-events:none}
 .postcard.pop-in{animation:pcIn .4s ease}
 @keyframes pcIn{from{transform:rotate(-1.5deg) translateY(12px) scale(.94)}to{transform:rotate(-1.5deg)}}
-.pc-in{position:relative;background:#fbf8f1;color:#16295e;display:grid;grid-template-columns:150px minmax(0,1fr);gap:14px;padding:12px}
-.pc-img{position:relative;padding:0;border:0;display:block;width:150px;height:184px;overflow:hidden;background:#cdd5e0}
-.pc-img img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s ease}
-.pc-img:hover img{transform:scale(1.05)}
-.pc-hint{position:absolute;left:6px;bottom:6px;background:rgba(20,28,45,.78);color:#fff;font-family:var(--f-mono);font-size:10.5px;border-radius:999px;padding:4px 9px}
+.pc-in{position:relative;background:#fbf8f1;color:#16295e;display:grid;grid-template-columns:minmax(0,1fr) 112px;gap:14px;padding:12px}
 .pc-body{display:grid;gap:6px;align-content:start;min-width:0;padding-right:46px}
 .pc-eyebrow{margin:4px 0 0;padding-right:54px;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#d0292f} /* Abstand zum Stempel */
 .pc-body h2{font-family:var(--f-display);font-weight:400;font-size:23px;line-height:1.12;margin:0;text-wrap:balance}
@@ -97,7 +98,7 @@ body.has-player .dock{bottom:calc(104px + env(safe-area-inset-bottom,0px))}
 @media (max-width:640px){
   .postcard{left:max(12px, env(safe-area-inset-left,0px))!important;right:max(12px, env(safe-area-inset-right,0px));top:auto!important;bottom:calc(122px + env(safe-area-inset-bottom,0px));width:auto;max-width:none}
   body.has-player .postcard{bottom:calc(210px + env(safe-area-inset-bottom,0px))}
-  .pc-in{grid-template-columns:100px minmax(0,1fr);gap:10px;padding:10px}.pc-img{width:100px;height:132px}.pc-btn{font-size:13px;padding:5px 10px}.pc-hint{font-size:9.5px}
+  .pc-in{grid-template-columns:minmax(0,1fr) 92px;gap:10px;padding:10px}.pc-btn{font-size:13px;padding:5px 10px}
   .dock .stats span:nth-child(3){display:none}.dock .stats{font-size:11px;padding:5px 12px}.pc-body h2{font-size:19px}.pc-body{padding-right:0}.pc-pm{display:none}.pc-eyebrow{padding-right:0}
 }
 @media (max-width:760px){main.home .gstyle{position:fixed;top:calc(104px + env(safe-area-inset-top,0px));left:50%;right:auto;transform:translateX(-50%);margin:0;flex-wrap:nowrap;white-space:nowrap}}
@@ -311,7 +312,6 @@ body.dim #globe{pointer-events:none;opacity:.5}
 .artnav a{display:grid;gap:4px;text-align:left;border:1px solid var(--line);border-radius:12px;padding:14px;color:var(--ink);text-decoration:none}
 .artnav a.next{text-align:right}
 .artnav a:hover{border-color:var(--ink)}
-a.pc-img{text-decoration:none}
 .pc-in > .pc-actions{gap:6px}
 .lesen .art-head h1{margin-top:10px}
 .lesen .stats span{white-space:nowrap}
@@ -350,7 +350,7 @@ body.start .toast{top:auto;bottom:calc(128px + env(safe-area-inset-bottom,0px))}
 .toast{pointer-events:none}
 @media (max-height:520px) and (min-width:641px){
   .postcard{width:420px;z-index:45}
-  .pc-in{grid-template-columns:96px minmax(0,1fr);gap:10px}.pc-img{width:96px;height:118px}
+  .pc-in{grid-template-columns:minmax(0,1fr) 96px;gap:10px}
   .pc-ex{display:none!important}.pc-body h2{font-size:19px}.pc-btn{font-size:13px;padding:5px 10px}
 }
 
@@ -376,7 +376,7 @@ body.start .toast{top:auto;bottom:calc(128px + env(safe-area-inset-bottom,0px))}
 .ar-reise{color:#c0392b}
 
 /* Zuhause: Postkarte ohne Bild, mit Liste der Einträge von zuhause */
-.postcard.heim .pc-in,.postcard.ohne-bild .pc-in{grid-template-columns:minmax(0,1fr)}
+.postcard.heim .pc-in{grid-template-columns:minmax(0,1fr)}.postcard.heim .pc-rechts{display:none}
 .heim-liste{list-style:none;margin:0;padding:0;width:100%;display:grid;gap:2px;max-height:min(240px,40vh);overflow-y:auto;overscroll-behavior:contain}
 .heim-liste button{width:100%;display:flex;justify-content:space-between;align-items:baseline;gap:10px;background:none;border:0;border-radius:8px;padding:7px 8px;text-align:left;color:#16295e}
 .heim-liste button:hover{background:rgba(29,63,154,.07)}
@@ -422,8 +422,9 @@ body.start .toast{top:auto;bottom:calc(128px + env(safe-area-inset-bottom,0px))}
 body.nah .topr{opacity:0;visibility:hidden;position:absolute;right:max(16px, env(safe-area-inset-right,0px))} /* aus dem Fluss, damit der Titel die ganze Breite bekommt */
 
 /* Stapel auf der Postkarte: „‹ 1 / 4 ›“, Wischen blättert (globus.js) */
-.pc-stapel{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:14px;font-family:var(--f-mono);font-size:12px;color:#16295e}
-.pc-stapel button{width:32px;height:32px;border-radius:50%;border:1.5px solid #1d3f9a;background:#fff;color:#1d3f9a;font-size:19px;line-height:1;padding:0 0 2px}
+.pc-stapel{position:absolute;top:-17px;left:50%;transform:translateX(-50%);z-index:3;display:flex;align-items:center;justify-content:center;gap:8px;padding:2px;border-radius:999px;border:1px solid var(--line);background:#fff;box-shadow:0 4px 12px rgba(20,30,50,.2);font-family:var(--f-mono);font-size:12px;color:#16295e;white-space:nowrap}
+.pc-stapel[hidden]{display:none}
+.pc-stapel button{width:30px;height:30px;border-radius:50%;border:1.5px solid #1d3f9a;background:#fff;color:#1d3f9a;font-size:18px;line-height:1;padding:0 0 2px}
 .pc-stapel button:hover{background:#1d3f9a;color:#fff}
 .postcard.stapel{touch-action:pan-y}
 .postcard a,.postcard img{-webkit-user-drag:none}
@@ -466,3 +467,36 @@ body.zr-aktiv #cbar,body.zr-aktiv #worldBtn{display:none!important}
 .pc-neu{position:absolute;top:-11px;left:16px;z-index:2;background:#d0292f;color:#fff;font:600 11px/1 var(--f-mono);letter-spacing:.14em;padding:5px 9px 4px;border-radius:3px;transform:rotate(-5deg);box-shadow:0 3px 8px rgba(20,30,50,.25);pointer-events:none}
 .pc-neu[hidden]{display:none}
 .ar-neu{display:inline-block;vertical-align:2px;margin-left:4px;background:#d0292f;color:#fff;font:600 9.5px/1 var(--f-mono);letter-spacing:.12em;padding:3px 5px 2px;border-radius:2px}
+
+/* Postkarte vorne rechts: Briefmarke des Landes mit Poststempel (Ort, Datum) und Adresse wie auf einer echten Karte.
+   Mit Marke braucht es den runden Stempel .pc-pm nicht (nur noch Zuhause-Karte und Orte ohne Land). */
+.pc-rechts{display:flex;flex-direction:column;gap:8px;min-width:0;border-left:1px solid #c9cfdc;padding-left:12px}
+.pc-marke svg{display:block;width:64px;height:auto;margin-left:auto;transform:rotate(3deg);filter:drop-shadow(0 2px 3px rgba(60,40,10,.28))}
+.pc-marke .loch circle{fill:#fbf8f1}
+.pc-an{margin:6px 0 0;font-family:var(--f-hand);font-weight:500;font-size:19px;line-height:1.05;color:#22345f;border-bottom:1px solid #b9c1d3;padding-bottom:2px}
+.pc-an span{font-family:var(--f-mono);font-size:10px;color:#5d6b8c;margin-right:5px}
+.pc-rechts::after{content:"";display:block;height:31px;background:repeating-linear-gradient(to bottom,transparent 0 15px,#b9c1d3 15px 16px)}
+.postcard.mit-marke .pc-pm{display:none}
+.postcard.mit-marke .pc-body{padding-right:0}.postcard.mit-marke .pc-eyebrow{padding-right:0}
+.pc-ex{font-family:var(--f-hand);font-style:normal;font-weight:500;font-size:19px;line-height:1.22;color:#22345f}
+/* Knopf zum Umdrehen oben am Rand neben ✕ (bleibt beim Drehen stehen) */
+.pc-drehen{position:absolute;top:-13px;right:26px;z-index:3;display:inline-flex;align-items:center;gap:5px;height:30px;box-sizing:border-box;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:#fff;color:#1c2433;font-family:var(--f-mono);font-size:12px;box-shadow:0 4px 12px rgba(20,30,50,.2)}
+.pc-drehen[hidden]{display:none}
+.pc-drehen:hover{background:#f3f5f9}
+/* Bildseite: zwei Fotos nebeneinander (fast quadratisch, Hoch- und Querformat passen), darunter „Grüße aus …“ in
+   Poststempel-Wellen. Ein Foto: über die ganze Breite. Schriftgröße passt sich der Länge des Ortsnamens an (--zeichen). */
+.pc-bild{height:100%;box-sizing:border-box;background:#fbf8f1;padding:5px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:minmax(0,1fr) 90px;gap:5px;container-type:inline-size;cursor:pointer}
+.pc-bild img{width:100%;height:100%;min-height:0;object-fit:cover;display:block;background:#cdd5e0}
+.pc-bild.eins img:first-child{grid-column:1/-1}.pc-bild.eins img + img{display:none}
+/* „Grüße aus“ beginnt bündig über dem ersten Buchstaben des Orts (Spalte so breit wie der Ortsname) und ragt nur knapp in die Großbuchstaben */
+.pb-gruss{grid-column:1/-1;margin:0;display:grid;grid-template-columns:auto;justify-content:center;align-content:center;min-width:0}
+.pb-aus{justify-self:start;position:relative;z-index:1;margin:0 0 -9px -6px;font-family:var(--f-hand);font-weight:500;font-size:28px;line-height:1;color:#c0252b;transform:rotate(-6deg);transform-origin:left bottom}
+.pb-ort{font-family:var(--f-display);font-size:min(62px, calc(124cqw / var(--zeichen, 8)));line-height:1;letter-spacing:.04em;white-space:nowrap;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='9' viewBox='0 0 16 9'%3E%3Crect width='16' height='9' fill='%23fbf8f1'/%3E%3Cpath d='M-8 2.5q4-2.7 8 0t8 0t8 0t8 0' fill='none' stroke='%231d3f9a' stroke-width='1.4'/%3E%3Cpath d='M-8 6.5q4-2.7 8 0t8 0t8 0t8 0' fill='none' stroke='%23d0292f' stroke-width='1.4'/%3E%3C/svg%3E") 0 0/16px 9px;
+  -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:1.4px #16295e}
+@media (max-width:640px){
+  .pc-marke svg{width:52px}.pc-an{font-size:15px}.pc-an span{margin-right:3px}.pc-rechts{padding-left:9px}
+  .pc-ex{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;font-size:17px}.pc-ex[hidden]{display:none}
+  .pc-bild{grid-template-rows:minmax(0,1fr) 70px}.pb-aus{font-size:22px;margin-bottom:-7px}
+}
+@media (prefers-reduced-motion:reduce){.pc-dreh{transition:none}}

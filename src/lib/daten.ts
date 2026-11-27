@@ -2,7 +2,7 @@ import { getCollection, getEntry } from 'astro:content';
 import { createRequire } from 'node:module';
 import { orteLesen } from '../../scripts/orte.mjs';
 import { entfernungKm, ortWaehlen } from '../../scripts/ortname.mjs';
-import { bausteinText, type Baustein } from './bausteine';
+import { bausteinFotos, bausteinText, type Baustein } from './bausteine';
 
 export const datumDE = (d: Date) =>
   d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
@@ -30,6 +30,21 @@ export const auszug = (body = '', max = 170) => {
 // Ganzer Text eines Eintrags: älterer freier Text plus Text aus den Bausteinen
 export const textVon = (e: { body?: string; data: { inhalt?: Baustein[] } }) =>
   [e.body ?? '', bausteinText(e.data.inhalt ?? [])].filter((t) => t.trim()).join('\n\n');
+
+// Alle Fotos eines Eintrags ohne Doppelte, mit Bildtext: Titelbild, Galerie, Bausteine, Bilder im alten freien Text.
+// Für die Bildseite der Postkarte (die ersten zwei) und die Fotowand. Nur Bilder, die ohnehin auf der Eintragsseite stehen.
+export function fotosVon(e: { body?: string; data: { titelbild?: string | null; galerie?: { bild: string; text?: string | null }[]; inhalt?: Baustein[] } }) {
+  const liste: { bild: string; text: string }[] = [];
+  const dazu = (bild?: string | null, text?: string | null) => {
+    if (!bild) return; const f = liste.find((x) => x.bild === bild);
+    if (!f) liste.push({ bild, text: text?.trim() || '' }); else if (!f.text && text?.trim()) f.text = text.trim();
+  };
+  dazu(e.data.titelbild);
+  for (const g of e.data.galerie ?? []) dazu(g.bild, g.text);
+  for (const f of bausteinFotos(e.data.inhalt ?? [])) dazu(f.bild, f.text);
+  for (const m of (e.body ?? '').matchAll(/!\[([^\]]*)\]\(<?([^)>\s]+)>?\)/g)) dazu(m[2], m[1]);
+  return liste;
+}
 
 export const lesezeit = (body = '') => Math.max(1, Math.round(reinText(body).split(' ').length / 200));
 
@@ -149,6 +164,7 @@ export async function globusDaten() {
     datum: datumDE(e.data.datum),
     iso: e.data.datum.toISOString().slice(0, 10),
     bild: e.data.titelbild || e.data.galerie[0]?.bild || null,
+    fotos: fotosVon(e),
     auszug: auszug(textVon(e), 120),
     zuhause: !!heim && entfernungKm(e.data.breite, e.data.laenge, heim.breite, heim.laenge) < ZUHAUSE_KM,
     musik: e.data.lieder.length > 0 || e.data.inhalt.some((b) => b.type === 'lied' && typeof b.link === 'string' && b.link.trim() !== ''),

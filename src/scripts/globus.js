@@ -363,6 +363,7 @@ export async function startGlobus(cfg = {}) {
   function genaueFormDa(id) {
     if (id === focusC) updateCbar();
     const pop = $('#ctyPop'); if (pop && !pop.hidden && VISITED.includes(id)) renderCty();
+    if (cardE && !cardE.heim && cardE.cid === id && pc && !pc.hidden) $('#pcMarke').innerHTML = markeSVG(id, cardE, '-pc');
   }
   const fmtPct = (v) => v.toLocaleString('de-DE', { maximumFractionDigits: v < 10 ? 1 : 0 });
   function baseR() { return w < 760 ? Math.min(w * 0.46, h * 0.33) : Math.min(w * 0.38, h * 0.44); }
@@ -749,13 +750,20 @@ export async function startGlobus(cfg = {}) {
     // andere Postkarte → Stapel vergessen; Karte aus demselben Stapel (z. B. über „Alle Einträge“) → Nummer nachführen
     if (kartenStapel) { const i = kartenStapel.es.indexOf(e); if (i < 0) kartenStapel = null; else kartenStapel.i = i; }
     stapelZeigen();
-    // Ohne Foto: kein leeres graues Bildfeld, die Karte zeigt nur Text (wie die Zuhause-Karte)
-    cardE = e; pc.classList.remove('heim'); pc.classList.toggle('ohne-bild', !e.bild); $('#pcImgLink').hidden = !e.bild; document.body.classList.add('karte-offen');
-    $('#pcImg').src = e.bild || ''; $('#pcImg').alt = `Titelbild: ${e.ort}`; $('#pcImg').hidden = !e.bild;
+    cardE = e; pc.classList.remove('heim'); document.body.classList.add('karte-offen');
+    // Vorne rechts die Briefmarke des Landes, Poststempel mit Ort und Datum dieses Eintrags; ohne Land der runde Stempel .pc-pm
+    if (e.cid && L10.get(e.cid) === undefined) land10Holen(e.cid);
+    $('#pcMarke').innerHTML = e.cid ? markeSVG(e.cid, e, '-pc') : ''; pc.classList.toggle('mit-marke', !!$('#pcMarke').innerHTML);
+    // Rückseite: bis zu zwei Fotos aus dem Eintrag; ohne Foto lässt sich die Karte nicht umdrehen
+    const fotos = e.fotos || [], ortName = ohneBei(e.ort || ''); pc.classList.toggle('ohne-bild', !fotos.length); $('#pcDrehen').hidden = !fotos.length;
+    fotos.slice(0, 2).forEach((f, i) => { const img = $(`#pcFoto${i + 1}`); img.src = f.bild; img.alt = f.text || `Foto aus ${ortName}`; });
+    $('#pcBild').classList.toggle('eins', fotos.length === 1);
+    const unterwegs = ortName === 'Unterwegs'; $('#pbAus').textContent = unterwegs ? 'Grüße von' : 'Grüße aus';
+    $('#pbOrt').textContent = ortName.toUpperCase(); $('#pbOrt').style.setProperty('--zeichen', Math.max(6, ortName.length));
+    karteDrehen(false, true);
     const art = e === ENTRIES[0] ? 'Neuester Eintrag' : vorEinemJahr.includes(e) ? 'Heute vor einem Jahr' : 'Eintrag';
     $('#pcEyebrow').textContent = e.reiseTitel ? (art === 'Eintrag' ? `Reise · ${e.reiseTitel}` : `${art} · Reise ${e.reiseTitel}`) : art;
     $('#pcNeu').hidden = !e.neu; $('#pcTitle').textContent = e.titel; $('#pcMeta').textContent = `${e.ort} · ${e.datum}` + (e.reiseTitel ? ` · Station ${e.nr} von ${e.von}` : ''); $('#pcEx').textContent = e.auszug || ''; $('#pcEx').hidden = !e.auszug; $('#pcPm').textContent = ohneBei(e.ort).toUpperCase();
-    $('#pcImgLink').href = e.musik ? e.url + '?musik=1' : e.url; $('#pcHint').textContent = e.musik ? '▶ Mit Musik' : 'Lesen';
     $('#pcActions').innerHTML = (e.musik ? `<a class="pc-btn primary" href="${e.url}?musik=1">▶ Mit Musik lesen</a><a class="pc-btn" href="${e.url}">Lesen</a>` : `<a class="pc-btn primary" href="${e.url}">Eintrag lesen →</a>`) + `<a class="pc-btn" href="${e.url}?vorlesen=1">🔈 Vorlesen</a>`;
     // Beim Blättern (richtung) nur den Inhalt tauschen – die Bewegung macht stapelWechsel(); sonst aufklappen
     if (!richtung) { pc.hidden = false; pc.classList.add('away'); pc.classList.remove('pop-in'); void pc.offsetWidth; pc.classList.add('pop-in'); }
@@ -815,10 +823,23 @@ export async function startGlobus(cfg = {}) {
     pc.addEventListener('click', (ev) => { if (gewischt) { gewischt = false; ev.preventDefault(); ev.stopPropagation(); } }, true);
   }
 
+  // Postkarte umdrehen: vorne Text mit Briefmarke, hinten Fotos und „Grüße aus …“ (index.astro, .pc-dreh). Die verdeckte
+  // Seite ist „inert“ (nicht fokussierbar, für Screenreader weg); der Knopf liegt außerhalb und bleibt stehen.
+  // sofort: ohne Drehung zurück auf vorne (neue Karte, Blättern im Stapel).
+  function karteDrehen(an, sofort) {
+    const d = pc.querySelector('.pc-dreh'); if (sofort) d.classList.add('sofort');
+    pc.classList.toggle('gedreht', an); $('#pcVorne').inert = an; $('#pcHinten').inert = !an;
+    $('#pcDrehen').setAttribute('aria-label', an ? 'Postkarte umdrehen: Text ansehen' : 'Postkarte umdrehen: Fotos ansehen'); $('#pcDrehText').textContent = an ? 'Text' : 'Fotos';
+    if (sofort) { void d.offsetWidth; d.classList.remove('sofort'); }
+  }
+  if (pc) {
+    $('#pcDrehen').addEventListener('click', () => karteDrehen(!pc.classList.contains('gedreht')));
+    $('#pcBild').addEventListener('click', () => karteDrehen(false));
+  }
   // Zuhause-Karte: dieselbe Postkarte, aber ohne Bild und mit der Liste der Einträge von zuhause (neueste zuerst)
   function openHome() {
     kartenStapel = null; $('#pcStapel').hidden = true; pc.classList.remove('stapel');
-    active = null; cardE = { heim: true, lon: HOME.lon, lat: HOME.lat }; pc.classList.add('heim'); $('#pcNeu').hidden = true; $('#pcImgLink').hidden = true; document.body.classList.add('karte-offen');
+    active = null; cardE = { heim: true, lon: HOME.lon, lat: HOME.lat }; pc.classList.add('heim'); pc.classList.remove('mit-marke'); $('#pcNeu').hidden = true; $('#pcDrehen').hidden = true; karteDrehen(false, true); document.body.classList.add('karte-offen');
     $('#pcEyebrow').textContent = 'Zuhause'; $('#pcTitle').textContent = HOME.ort;
     $('#pcMeta').textContent = `${HOME.land} · ${HEIM.length} ${HEIM.length === 1 ? 'Eintrag' : 'Einträge'} von zuhause`; $('#pcEx').hidden = true; $('#pcPm').textContent = HOME.ort.toUpperCase();
     $('#pcActions').innerHTML = `<ul class="heim-liste">${HEIM.map((e) => `<li><button data-id="${esc(e.id)}"><b>${esc(e.titel)}${e.neu ? ' <span class="ar-neu">NEU</span>' : ''}</b><span class="d">${esc(e.datum)}</span></button></li>`).join('')}</ul>`;
@@ -963,7 +984,8 @@ export async function startGlobus(cfg = {}) {
     const gross = teile.reduce((x, y) => (y.a > x.a ? y : x));
     return { type: 'Feature', geometry: { type: 'MultiPolygon', coordinates: teile.filter((t) => geoDistance(t.m, gross.m) < 0.14).map((t) => t.c) } };
   }
-  function markeSVG(id, erste) {
+  // zusatz: hängt an die ID des Stempel-Bogens (Album und Postkarte können dasselbe Land gleichzeitig zeigen)
+  function markeSVG(id, erste, zusatz = '') {
     const f = L10.get(id) || C110.find((x) => String(x.id) === id); if (!f) return '';
     const farbe = MARKEN_FARBEN[[...id].reduce((a, ch) => a + ch.charCodeAt(0), 0) % MARKEN_FARBEN.length];
     const W = 120, H = 150, teile = hauptteile(f), name = (CNAME[id] || '').toUpperCase();
@@ -978,8 +1000,8 @@ export async function startGlobus(cfg = {}) {
       + `<text x="${W / 2}" y="${H - 20}" text-anchor="middle" class="m-name" fill="${farbe}">${esc(name.length > 16 ? name.slice(0, 15) + '.' : name)}</text>`
       + `<g class="stempel" transform="rotate(-14 ${sx} ${sy})"><path class="wellen" d="M ${sx - 78} ${sy - 7} q 6 -4 12 0 t 12 0 t 12 0 t 12 0 t 12 0 M ${sx - 78} ${sy} q 6 -4 12 0 t 12 0 t 12 0 t 12 0 t 12 0 M ${sx - 78} ${sy + 7} q 6 -4 12 0 t 12 0 t 12 0 t 12 0 t 12 0"/>`
       + `<circle cx="${sx}" cy="${sy}" r="24" class="ring"/><circle cx="${sx}" cy="${sy}" r="16.5" class="ring"/>`
-      + `<path id="pm-${id}" d="M ${sx - 20.3} ${sy} A 20.3 20.3 0 0 1 ${sx + 20.3} ${sy}" fill="none"/>`
-      + `<text class="m-ort"><textPath href="#pm-${id}" startOffset="50%" text-anchor="middle">${esc(ort)}</textPath></text>`
+      + `<path id="pm-${id}${zusatz}" d="M ${sx - 20.3} ${sy} A 20.3 20.3 0 0 1 ${sx + 20.3} ${sy}" fill="none"/>`
+      + `<text class="m-ort"><textPath href="#pm-${id}${zusatz}" startOffset="50%" text-anchor="middle">${esc(ort)}</textPath></text>`
       + `<text x="${sx}" y="${sy + 2.5}" text-anchor="middle" class="m-tag">${tag}</text></g></svg>`;
   }
   function renderCty() {
