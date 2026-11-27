@@ -3,7 +3,8 @@
 #   Variable  CONTENT_REPO          z. B. christoph-name/tagebuch-inhalte
 #   Secret    BUILD_TRIGGER_TOKEN   Token von Christoph, Rechte NUR: Actions = Read and write auf tagebuch-inhalte
 # Ohne Token passiert nichts Schlimmes: Die Seite übernimmt Code-Updates dann beim nächsten Inhalts-Speichern
-# oder spätestens beim nächtlichen Bau.
+# oder wenn der Bau im Inhalts-Repo von Hand gestartet wird (Actions → Seite bauen → Run workflow).
+# Einen nächtlichen Bau gibt es nicht mehr (im Inhalts-Repo entfernt, die Seite hängt nicht vom Datum ab).
 name: Seite neu bauen
 
 on:
