@@ -754,6 +754,7 @@ export async function startGlobus(cfg = {}) {
     $('#pcActions').innerHTML = (e.musik ? `<a class="pc-btn primary" href="${e.url}?musik=1">▶ Mit Musik lesen</a><a class="pc-btn" href="${e.url}">Lesen</a>` : `<a class="pc-btn primary" href="${e.url}">Eintrag lesen →</a>`) + `<a class="pc-btn" href="${e.url}?vorlesen=1">🔈 Vorlesen</a>`;
     // Beim Blättern (richtung) nur den Inhalt tauschen – die Bewegung macht stapelWechsel(); sonst aufklappen
     if (!richtung) { pc.hidden = false; pc.classList.add('away'); pc.classList.remove('pop-in'); void pc.offsetWidth; pc.classList.add('pop-in'); }
+    auszugKuerzen();
     document.querySelectorAll('#entryList button').forEach((b) => b.setAttribute('aria-current', String(b.dataset.id === e.id)));
   }
   // Stapel öffnen: alle Einträge (ohne Zuhause), deren Pin höchstens r Pixel von (x, y) entfernt ist
@@ -810,6 +811,17 @@ export async function startGlobus(cfg = {}) {
     pc.addEventListener('click', (ev) => { if (gewischt) { gewischt = false; ev.preventDefault(); ev.stopPropagation(); } }, true);
   }
 
+  // Feste Kartengröße (DIN A6 per CSS aspect-ratio): der Auszug hat nur den Platz, der neben Titel, Ort und Knöpfen übrig
+  // bleibt (.pc-ex mit flex 1 1 0). Hier wird daraus die Zeilenzahl für -webkit-line-clamp, damit er mit „…“ endet
+  // statt mitten in einer Zeile abgeschnitten zu werden. Passt keine Zeile mehr, bleibt er unsichtbar.
+  function auszugKuerzen() {
+    const ex = $('#pcEx'); if (!pc || !ex || pc.hidden || ex.hidden) return;
+    ex.style.removeProperty('-webkit-line-clamp'); ex.style.maxHeight = '';
+    const lh = parseFloat(getComputedStyle(ex).lineHeight) || 23, n = Math.floor((ex.clientHeight + 2) / lh);
+    // Höhe zusätzlich auf genau n Zeilen begrenzen – sonst scheint unter der „…“-Zeile die nächste Zeile halb durch
+    ex.style.setProperty('-webkit-line-clamp', String(Math.max(1, n))); ex.style.maxHeight = `${Math.ceil(Math.max(1, n) * lh) + 1}px`; ex.style.visibility = n < 1 ? 'hidden' : '';
+  }
+  if (pc) addEventListener('resize', auszugKuerzen);
   // Postkarte umdrehen: vorne Text mit Briefmarke, hinten Fotos und „Grüße aus …“ (index.astro, .pc-dreh). Die verdeckte
   // Seite ist „inert“ (nicht fokussierbar, für Screenreader weg); der Knopf liegt außerhalb und bleibt stehen.
   // sofort: ohne Drehung zurück auf vorne (neue Karte, Blättern im Stapel).

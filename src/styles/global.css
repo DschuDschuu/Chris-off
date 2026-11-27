@@ -496,7 +496,7 @@ body.zr-aktiv #cbar,body.zr-aktiv #worldBtn{display:none!important}
   -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:1.4px #16295e}
 @media (max-width:640px){
   .pc-marke svg{width:52px}.pc-an{font-size:15px}.pc-an span{margin-right:3px}.pc-rechts{padding-left:9px}
-  .pc-ex{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;font-size:17px}.pc-ex[hidden]{display:none}
+  .pc-ex{font-size:17px}
   .pc-bild{grid-template-rows:minmax(0,1fr) 70px}.pb-aus{font-size:22px;margin-bottom:-7px}
 }
 @media (prefers-reduced-motion:reduce){.pc-dreh{transition:none}}
@@ -568,3 +568,19 @@ a.fw-foto{text-decoration:none}
    Spaltenumbruch der Streifen allein am Ende der vorigen Spalte stehen */
 .fw-wand li,.rb-fotos li{display:inline-block;width:100%;padding-top:10px;box-sizing:border-box}
 @media (max-width:640px){.rb-marken{grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 12px}.rb-mname{font-size:15px}.rb-mort{font-size:9.5px}.rb-zahlen li{min-width:0;padding:7px 11px}.rb-zahlen b{font-size:24px}}
+
+/* Feste Kartengröße im Postkarten-Format DIN A6 (148 × 105 mm): die Vorderseite gibt die Höhe vor (aspect-ratio), die
+   Rückseite liegt deckungsgleich darüber. Was nicht passt, wird gekürzt: Eyebrow, Titel und Ort/Datum höchstens 2 Zeilen,
+   der Auszug bekommt den restlichen Platz (Zeilenzahl setzt auszugKuerzen() in globus.js, endet mit „…“), die Liste
+   der Zuhause-Karte scrollt innen. */
+.pc-vorne{aspect-ratio:148/105}
+.pc-vorne > .pc-in{height:100%;box-sizing:border-box;grid-template-rows:minmax(0,1fr) auto;overflow:hidden}
+.pc-vorne .pc-body{display:flex;flex-direction:column;gap:6px;min-height:0;overflow:hidden}
+.pc-vorne .pa{align-self:flex-start;flex:none}
+.pc-vorne .pc-eyebrow,.pc-vorne .pc-body h2,.pc-vorne .pc-meta{flex:none;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.pc-vorne .pc-ex{flex:1 1 0;min-height:0;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden}
+.pc-vorne .pc-ex[hidden]{display:none}
+.pc-rechts{min-height:0;overflow:hidden}
+.postcard.heim .pc-vorne > .pc-in{grid-template-rows:auto minmax(0,1fr)}
+.postcard.heim .pc-actions{min-height:0;overflow:hidden;align-items:stretch}
+.postcard.heim .heim-liste{max-height:100%}
