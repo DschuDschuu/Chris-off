@@ -31,7 +31,7 @@ export const bausteinFotos = (bausteine: Baustein[]) =>
     if (b.type === 'foto') return str(b.bild) ? [{ bild: str(b.bild), text: str(b.text) }] : [];
     if (b.type !== 'streifen') return [];
     return (Array.isArray(b.bilder) ? b.bilder : []).map((x) => (typeof x === 'string' ? x : str((x as { bild?: unknown })?.bild)))
-      .filter(Boolean).slice(0, 3).map((bild) => ({ bild, text: str(b.text) }));
+      .filter(Boolean).slice(0, 3).map((bild, i) => ({ bild, text: i === 0 ? str(b.text) : '' })); // Bildtext des Streifens nur einmal
   });
 
 // liederVorher: Lieder eines noch nicht umgewandelten älteren Eintrags (freier Text), damit die Nummern weiterzählen

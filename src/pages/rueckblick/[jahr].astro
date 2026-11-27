@@ -1,0 +1,117 @@
+---
+// Jahresrückblick als Luftpost-Brief zum Scrollen (mit Julia festgelegt). Daten: src/lib/rueckblick.ts.
+// Erreichbar über „Alle Einträge“ an der Jahreszahl. Fürs laufende Jahr zeigt ein kleines Skript „bisher“ an
+// (nach dem Datum des Lesers – der Bau selbst hängt nicht vom Datum ab).
+import Base from '../../layouts/Base.astro';
+import { jahresRueckblicke } from '../../lib/rueckblick';
+
+export async function getStaticPaths() {
+  const alle = await jahresRueckblicke();
+  return alle.map((r) => ({ params: { jahr: r.jahr }, props: { r } }));
+}
+
+const { r } = Astro.props;
+const zahl = (n: number) => n.toLocaleString('de-DE');
+const tag = (iso: string) => `${Number(iso.slice(8, 10))}.`;
+---
+<Base titel={`Rückblick ${r.jahr}`} beschreibung={`${r.jahr} in Postkarten: ${r.es.length} ${r.es.length === 1 ? 'Eintrag' : 'Einträge'} aus ${r.marken.length} ${r.marken.length === 1 ? 'Land' : 'Ländern'}`} bild={r.fotos[0]?.bild} typ="article" ohneKopf>
+  <div class="lesen">
+    <article class="sheet art rueckblick">
+      <div class="sheet-bar">
+        <a class="btn sm" href="/">←<span class="hide-n"> Zur</span> Weltkugel</a>
+      </div>
+
+      <header class="art-head rb-kopf">
+        <p class="eyebrow">Luftpost · Jahresrückblick<span id="rbBisher" hidden> · bisher</span></p>
+        <h1 class="rb-jahr">{r.jahr}</h1>
+        <p class="rb-unter">{r.es.length === 1 ? `Eine Postkarte, am ${r.von}.` : `Ein Jahr in Postkarten – vom ${r.von} bis zum ${r.bis}.`}</p>
+      </header>
+
+      <ul class="rb-zahlen">
+        <li><b>{r.es.length}</b> {r.es.length === 1 ? 'Eintrag' : 'Einträge'}</li>
+        <li><b>{r.orte}</b> {r.orte === 1 ? 'Ort' : 'Orte'}</li>
+        <li><b>{r.marken.length}</b> {r.marken.length === 1 ? 'Land' : 'Länder'}</li>
+        {r.km >= 1 && <li><b>{zahl(Math.round(r.km))} km</b> unterwegs</li>}
+        {r.gedanken.length > 0 && <li><b>{r.gedanken.length}</b> {r.gedanken.length === 1 ? 'Gedanke' : 'Gedanken'}</li>}
+      </ul>
+
+      {r.marken.length > 0 && (
+        <section class="rb-teil">
+          <h2 class="rb-h">Briefmarken des Jahres</h2>
+          <ul class="rb-marken">
+            {r.marken.map((m) => (
+              <li class="marke">
+                <Fragment set:html={m.svg} />
+                <span class="rb-mname">{m.name}</span>
+                <span class="rb-mort">{m.ort} · {m.datum}</span>
+                {m.neu && <span class="rb-neu">neu im Album</span>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {r.reisen.length > 0 && (
+        <section class="rb-teil">
+          <h2 class="rb-h">Reisen</h2>
+          <ul class="rb-reisen">
+            {r.reisen.map((x) => (
+              <li>
+                <b>✈ {x.titel}</b>
+                <span class="d">{x.zeitraum} · {x.stationen === x.von ? `${x.von} ${x.von === 1 ? 'Station' : 'Stationen'}` : `${x.stationen} von ${x.von} Stationen in diesem Jahr`}</span>
+                <span class="rb-route">{x.orte.join(' → ')}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {r.lieblingsort && <div class="zettel rb-zettel">Am häufigsten geschrieben aus {r.lieblingsort.ort} – {r.lieblingsort.zahl} Einträge.</div>}
+
+      {r.fotos.length > 0 && (
+        <section class="rb-teil">
+          <h2 class="rb-h">In Bildern</h2>
+          <ul class="rb-fotos">
+            {r.fotos.map((f, i) => (
+              <li>
+                <a class="fw-foto" href={f.url} style={`--kipp:${((i * 53) % 9) - 4}deg`} aria-label={`${f.text ? f.text + ' – ' : ''}${f.titel}, ${f.ort}`}>
+                  <img src={f.klein} alt="" loading="lazy" decoding="async" />
+                  {f.text && <span class="fw-text">{f.text}</span>}
+                  <span class="fw-ort">{f.ort}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <section class="rb-teil">
+        <h2 class="rb-h">Monat für Monat</h2>
+        {r.monate.map((m) => (
+          <div class="rb-monat">
+            <h3>{m.name}</h3>
+            <ul>
+              {m.es.map((e) => (
+                <li><a href={e.url}><span class="ar-tag">{tag(e.iso)}</span><span class="ar-txt"><b>{e.titel}</b><span class="d">{e.ort} · {e.land}</span></span></a></li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </section>
+
+      {r.gedanken.length > 0 && (
+        <section class="rb-teil">
+          <h2 class="rb-h">Gedanken</h2>
+          <ul class="rb-gedanken">
+            {r.gedanken.map((g) => <li><a href={g.url}>{g.titel}</a> <span class="d">{g.datum}</span></li>)}
+          </ul>
+        </section>
+      )}
+
+      <p class="rb-ende">Fortsetzung folgt …</p>
+    </article>
+  </div>
+  <script is:inline define:vars={{ jahr: r.jahr }}>
+    if (String(new Date().getFullYear()) === jahr) document.getElementById('rbBisher').hidden = false;
+  </script>
+</Base>

@@ -1,9 +1,10 @@
 /* Weltkugel des Reisetagebuchs.
    modus 'home'  : Startseite mit allen Funktionen (Postkarten, Zoom, Fog of War, Gedanken …)
    modus 'lesen' : ruhiger, gedimmter Hintergrund für Eintrags- und Gedankenseiten */
-import { geoOrthographic, geoPath, geoGraticule10, geoCircle, geoDistance, geoInterpolate, geoCentroid, geoBounds, geoEquirectangular, geoContains, geoMercator, geoArea } from 'd3-geo';
+import { geoOrthographic, geoPath, geoGraticule10, geoCircle, geoDistance, geoInterpolate, geoCentroid, geoBounds, geoEquirectangular } from 'd3-geo';
 import { easeCubicInOut } from 'd3-ease';
 import { feature, mesh } from 'topojson-client';
+import { landIdsZuordnen, markeSVG as markeBauen } from '../lib/marke.mjs';
 
 export async function startGlobus(cfg = {}) {
   const modus = cfg.modus || 'home';
@@ -44,23 +45,8 @@ export async function startGlobus(cfg = {}) {
   const C110 = feature(TOPO, TOPO.objects.countries).features;
   const proj = geoOrthographic().clipAngle(90).precision(0.4), path = geoPath(proj, ctx), grat = geoGraticule10();
 
-  // Land jedes Eintrags automatisch bestimmen. Die grobe Karte kennt kleine Inseln nicht (z. B. Mallorca), daher:
-  // 1. Punkt liegt im Land  2. sonst Land eines anderen Eintrags mit gleichem Ländernamen (Kanaren → Spanien, nicht Marokko)
-  // 3. sonst Land mit der nächsten Küste/Grenze, bis ca. 450 km (früher: nächster Land-Mittelpunkt – Madrid ist zu weit von Mallorca)
-  const cent = new Map(C110.map((c) => [c, geoCentroid(c)]));
-  for (const e of ENTRIES) { const f = C110.find((c) => geoContains(c, [e.lon, e.lat])); e.cid = f ? String(f.id) : null; }
-  const cidNachName = {}; for (const e of ENTRIES) if (e.cid && e.land) cidNachName[e.land.trim().toLowerCase()] ??= e.cid;
-  for (const e of ENTRIES) {
-    if (e.cid) continue;
-    const n = e.land && cidNachName[e.land.trim().toLowerCase()]; if (n) { e.cid = n; continue; }
-    let bd = 0.07, best = null; const pt = [e.lon, e.lat];
-    for (const c of C110) {
-      if (geoDistance(cent.get(c), pt) > 0.6) continue; // weit entfernte Länder gar nicht erst durchgehen
-      const polys = c.geometry.type === 'Polygon' ? [c.geometry.coordinates] : c.geometry.coordinates;
-      for (const poly of polys) for (const ring of poly) for (const q of ring) { const d = geoDistance(q, pt); if (d < bd) { bd = d; best = String(c.id); } }
-    }
-    e.cid = best;
-  }
+  // Land jedes Eintrags (e.cid) – Regel in src/lib/marke.mjs, dieselbe nutzt der Jahresrückblick beim Bau
+  landIdsZuordnen(ENTRIES, C110);
   const VISITED = [...new Set(ENTRIES.map((e) => e.cid).filter(Boolean))];
   const CNAME = {}; ENTRIES.forEach((e) => { if (e.cid && !CNAME[e.cid]) CNAME[e.cid] = e.land; });
   // besuchte Länder (Färbung); während der Zeitreise nur die bis zum aktuellen Datum (zrAnwenden)
@@ -291,7 +277,8 @@ export async function startGlobus(cfg = {}) {
   // Titelbild über dem Pin; Einträge dicht beieinander werden ein Stapel (neuestes oben, Zahl dran) und fächern
   // sich beim weiteren Reinzoomen von selbst auf. Zuhause-Einträge nicht (dafür gibt es das Haus mit Liste).
   const FOTO = new Map();
-  function fotoBild(url) { let i = FOTO.get(url); if (!i) { i = new Image(); i.decoding = 'async'; i.src = url; FOTO.set(url, i); } return i.complete && i.naturalWidth ? i : null; }
+  // Polaroids: Vorschaubild (klein); fehlt es (z. B. altes Bild ohne Vorschau), das große Foto
+  function fotoBild(url, gross) { let i = FOTO.get(url); if (!i) { i = new Image(); i.decoding = 'async'; if (gross && gross !== url) i.onerror = () => { i.onerror = null; i.src = gross; }; i.src = url; FOTO.set(url, i); } return i.complete && i.naturalWidth ? i : null; }
   const neigung = (id) => { let x = 0; for (const c of id) x = (x * 31 + c.charCodeAt(0)) | 0; return ((((x % 15) + 15) % 15) - 7) * (Math.PI / 180); };
   let fotoStapel = [], fotoSeit = null;
   function fotoLayout(Rr, center, now) {
@@ -317,7 +304,7 @@ export async function startGlobus(cfg = {}) {
     const al = Math.min(1, (now - fotoSeit) / 350);
     for (const st of fotoStapel) {
       for (let k = Math.min(3, st.es.length) - 1; k >= 0; k--) { // unten die älteren, oben der neueste
-        const e = st.es[k], img = fotoBild(e.bild);
+        const e = st.es[k], img = fotoBild(e.bildKlein || e.bild, e.bild);
         ctx.save(); ctx.globalAlpha = al; ctx.translate(st.x + k * 5, st.y - 44 - k * 3); ctx.rotate(neigung(e.id) + k * 0.1);
         ctx.shadowColor = 'rgba(20,30,50,.28)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 3; ctx.fillStyle = '#fffdf8'; ctx.fillRect(-25, -27, 50, 58);
         ctx.shadowColor = 'transparent';
@@ -756,7 +743,7 @@ export async function startGlobus(cfg = {}) {
     $('#pcMarke').innerHTML = e.cid ? markeSVG(e.cid, e, '-pc') : ''; pc.classList.toggle('mit-marke', !!$('#pcMarke').innerHTML);
     // Rückseite: bis zu zwei Fotos aus dem Eintrag; ohne Foto lässt sich die Karte nicht umdrehen
     const fotos = e.fotos || [], ortName = ohneBei(e.ort || ''); pc.classList.toggle('ohne-bild', !fotos.length); $('#pcDrehen').hidden = !fotos.length;
-    fotos.slice(0, 2).forEach((f, i) => { const img = $(`#pcFoto${i + 1}`); img.src = f.bild; img.alt = f.text || `Foto aus ${ortName}`; });
+    fotos.slice(0, 2).forEach((f, i) => { const img = $(`#pcFoto${i + 1}`); img.onerror = () => { img.onerror = null; img.src = f.bild; }; img.src = f.klein || f.bild; img.alt = f.text || `Foto aus ${ortName}`; });
     $('#pcBild').classList.toggle('eins', fotos.length === 1);
     const unterwegs = ortName === 'Unterwegs'; $('#pbAus').textContent = unterwegs ? 'Grüße von' : 'Grüße aus';
     $('#pbOrt').textContent = ortName.toUpperCase(); $('#pbOrt').style.setProperty('--zeichen', Math.max(6, ortName.length));
@@ -953,6 +940,7 @@ export async function startGlobus(cfg = {}) {
   $('#stats').innerHTML = `<span><b>${orte}</b> ${orte === 1 ? 'Ort' : 'Orte'}</span><button class="st-btn" id="ctyBtn" aria-expanded="false" aria-controls="ctyPop"><b>${VISITED.length}</b> ${VISITED.length === 1 ? 'Land' : 'Länder'}</button><span${km > 0 ? '' : ' hidden'}><b>${Math.round(km).toLocaleString('de-DE')} km</b> unterwegs</span><span><b>${pct.toLocaleString('de-DE', { maximumFractionDigits: 2 })} %</b> der Welt entdeckt</span>`;
   // Archiv: nach Jahr und Monat, neueste zuerst; Stationen stehen in ihrem Monat mit Reise-Hinweis
   const MONATE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+  const heuteJahr = new Date().getFullYear(); // „Rückblick (bisher)“ fürs laufende Jahr (Datum des Lesers)
   const nachJahr = new Map();
   for (const e of [...ENTRIES].sort((a, b) => (a.iso < b.iso ? 1 : a.iso > b.iso ? -1 : 0))) {
     const [j, m] = e.iso.split('-'); if (!nachJahr.has(j)) nachJahr.set(j, new Map());
@@ -962,12 +950,51 @@ export async function startGlobus(cfg = {}) {
     return `<li><button data-id="${esc(e.id)}"><span class="ar-tag">${Number(e.iso.slice(8, 10))}.</span><span class="ar-txt"><b>${esc(e.titel)}${e.neu ? ' <span class="ar-neu">NEU</span>' : ''}</b><span class="d">${esc(e.ort)} · ${esc(e.land)}${r ? ` · <span class="ar-reise">✈ Reise · ${esc(r.titel)}</span>` : ''}${e.zuhause ? ' · <span class="ar-heim">⌂ Zuhause</span>' : ''}</span></span></button></li>`; };
   $('#arJahre').innerHTML = nachJahr.size > 1 ? [...nachJahr.keys()].map((j) => `<a href="#ar-${j}">${j}</a>`).join('') : '';
   $('#entryList').innerHTML = [...nachJahr].map(([j, mm]) => { const n = [...mm.values()].reduce((a, l) => a + l.length, 0);
-    return `<section class="ar-jahr" id="ar-${j}"><h3>${j} <span class="d">${n} ${n === 1 ? 'Eintrag' : 'Einträge'}</span></h3>${[...mm].map(([m, l]) => `<h4>${MONATE[Number(m) - 1]}</h4><ul>${l.map(arEintrag).join('')}</ul>`).join('')}</section>`; }).join('');
+    return `<section class="ar-jahr" id="ar-${j}"><h3>${j} <span class="d">${n} ${n === 1 ? 'Eintrag' : 'Einträge'}</span><a class="ar-rueck" href="/rueckblick/${j}/">Rückblick${String(heuteJahr) === j ? ' (bisher)' : ''} →</a></h3>${[...mm].map(([m, l]) => `<h4>${MONATE[Number(m) - 1]}</h4><ul>${l.map(arEintrag).join('')}</ul>`).join('')}</section>`; }).join('');
   const archiv = $('#archiv'); let arVon = null;
-  function archivAuf() { arVon = document.activeElement; archiv.hidden = false; document.body.classList.add('dim'); $('#listBtn').setAttribute('aria-expanded', 'true'); archiv.querySelector('.archiv-blatt').scrollTop = 0; $('#entryList button[aria-current="true"]')?.scrollIntoView({ block: 'center' }); ($('#entryList button[aria-current="true"]') || $('#arClose')).focus(); }
+  function archivAuf() {
+    arVon = document.activeElement; archiv.hidden = false; document.body.classList.add('dim'); $('#listBtn').setAttribute('aria-expanded', 'true'); archiv.querySelector('.archiv-blatt').scrollTop = 0;
+    if (!$('#fotoWand').hidden) return $('#arTabFotos').focus();
+    $('#entryList button[aria-current="true"]')?.scrollIntoView({ block: 'center' }); ($('#entryList button[aria-current="true"]') || $('#arClose')).focus();
+  }
   function archivZu(fokusZurueck = true) { if (archiv.hidden) return; archiv.hidden = true; document.body.classList.remove('dim'); $('#listBtn').setAttribute('aria-expanded', 'false'); if (fokusZurueck) arVon?.focus?.(); }
   $('#entryList').addEventListener('click', (ev) => { const b = ev.target.closest('button'); if (!b) return; archivZu(false); select(EBY[b.dataset.id]); });
   $('#arJahre').addEventListener('click', (ev) => { const a = ev.target.closest('a'); if (!a) return; ev.preventDefault(); $(a.getAttribute('href'))?.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+  // Fotowand: alle Fotos aller Einträge (neueste zuerst) als Polaroids mit Klebestreifen, Bildtext (falls vorhanden) in Handschrift.
+  // Vorschaubilder (klein) und loading="lazy", damit am Handy nicht alles auf einmal lädt. Filter: Reise oder Land.
+  // Klick fliegt wie in der Liste zur Postkarte. Aufgebaut erst beim ersten Öffnen des Reiters.
+  const WAND = ENTRIES.flatMap((e) => (e.fotos || []).map((f) => ({ e, f })));
+  let wandFilter = 'alle', wandDa = false;
+  function wandZeigen() {
+    const passt = ({ e }) => wandFilter === 'alle' || (wandFilter.startsWith('r:') ? String(e.reise) === wandFilter.slice(2) : e.cid === wandFilter.slice(2));
+    const liste = WAND.filter(passt);
+    $('#fwWand').innerHTML = liste.map(({ e, f }, i) => `<li><button class="fw-foto" data-id="${esc(e.id)}" style="--kipp:${((i * 53) % 9) - 4}deg" aria-label="${esc((f.text ? f.text + ' – ' : '') + e.titel + ', ' + e.ort + ', ' + e.datum)}"><img src="${esc(f.klein || f.bild)}" data-gross="${esc(f.bild)}" alt="" loading="lazy" decoding="async">${f.text ? `<span class="fw-text">${esc(f.text)}</span>` : ''}<span class="fw-ort">${esc(ohneBei(e.ort))} · ${esc(e.datum)}</span></button></li>`).join('')
+      || '<li class="fw-leer">Hier gibt es noch keine Fotos.</li>';
+    $('#fwWand').querySelectorAll('img').forEach((img) => { img.onerror = () => { img.onerror = null; img.src = img.dataset.gross; }; });
+  }
+  function wandFilterBauen() {
+    const reisen = [...new Set(WAND.map(({ e }) => e.reise).filter((r) => r != null))].map((r) => REISEN[RIDX[r]]).filter(Boolean);
+    const laender = [...new Set(WAND.map(({ e }) => e.cid).filter(Boolean))];
+    const knopf = (wert, text) => `<button data-f="${esc(wert)}" aria-pressed="${wert === wandFilter}">${text}</button>`;
+    $('#fwFilter').innerHTML = knopf('alle', `Alle <span class="d">${WAND.length}</span>`)
+      + reisen.map((r) => knopf('r:' + r.id, `✈ ${esc(r.titel)}`)).join('')
+      + laender.map((c) => knopf('l:' + c, esc(CNAME[c] || ''))).join('');
+  }
+  function reiterWechseln(fotos) {
+    $('#arTabListe').setAttribute('aria-selected', String(!fotos)); $('#arTabFotos').setAttribute('aria-selected', String(fotos));
+    $('#arTabListe').tabIndex = fotos ? -1 : 0; $('#arTabFotos').tabIndex = fotos ? 0 : -1;
+    $('#arListe').hidden = fotos; $('#fotoWand').hidden = !fotos;
+    if (fotos && !wandDa) { wandDa = true; wandFilterBauen(); wandZeigen(); }
+    archiv.querySelector('.archiv-blatt').scrollTop = 0;
+  }
+  $('#arTabListe').onclick = () => reiterWechseln(false);
+  $('#arTabFotos').onclick = () => reiterWechseln(true);
+  archiv.querySelector('.ar-reiter').addEventListener('keydown', (ev) => {
+    if (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') return; const fotos = $('#fotoWand').hidden; reiterWechseln(fotos); (fotos ? $('#arTabFotos') : $('#arTabListe')).focus();
+  });
+  $('#fwFilter').addEventListener('click', (ev) => { const b = ev.target.closest('[data-f]'); if (!b) return; wandFilter = b.dataset.f; $('#fwFilter').querySelectorAll('[data-f]').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); wandZeigen(); });
+  $('#fwWand').addEventListener('click', (ev) => { const b = ev.target.closest('[data-id]'); if (!b) return; archivZu(false); select(EBY[b.dataset.id]); });
+  if (!WAND.length) $('#arTabFotos').hidden = true;
   $('#listBtn').onclick = () => (archiv.hidden ? archivAuf() : archivZu());
   $('#arClose').onclick = () => archivZu();
   archiv.addEventListener('click', (ev) => { if (ev.target === archiv) archivZu(); });
@@ -977,33 +1004,8 @@ export async function startGlobus(cfg = {}) {
   // lädt aus der groben; Teile weiter als ca. 900 km vom größten Stück fallen weg (Azoren, Kanaren, Französisch-Guayana),
   // sonst wäre das Land auf der Marke winzig – Mallorca, Sizilien & Co. bleiben drauf.
   // Darunter klein „x % erkundet“ (wie bisher die Länderliste). Antippen einer Marke fliegt zum neuesten Eintrag dort.
-  const MARKEN_FARBEN = ['#1d3f9a', '#b8322a', '#2a7f62', '#a8741a', '#6b4c9a', '#00838f', '#b5446e', '#4f5d75'];
-  function hauptteile(f) {
-    const g = f.geometry; if (!g || g.type !== 'MultiPolygon' || g.coordinates.length < 2) return f;
-    const teile = g.coordinates.map((c) => { const p = { type: 'Polygon', coordinates: c }; return { c, a: geoArea(p), m: geoCentroid(p) }; });
-    const gross = teile.reduce((x, y) => (y.a > x.a ? y : x));
-    return { type: 'Feature', geometry: { type: 'MultiPolygon', coordinates: teile.filter((t) => geoDistance(t.m, gross.m) < 0.14).map((t) => t.c) } };
-  }
-  // zusatz: hängt an die ID des Stempel-Bogens (Album und Postkarte können dasselbe Land gleichzeitig zeigen)
-  function markeSVG(id, erste, zusatz = '') {
-    const f = L10.get(id) || C110.find((x) => String(x.id) === id); if (!f) return '';
-    const farbe = MARKEN_FARBEN[[...id].reduce((a, ch) => a + ch.charCodeAt(0), 0) % MARKEN_FARBEN.length];
-    const W = 120, H = 150, teile = hauptteile(f), name = (CNAME[id] || '').toUpperCase();
-    let d = ''; try { d = geoPath(geoMercator().fitExtent([[22, 22], [W - 22, H - 44]], teile))(teile) || ''; } catch (_) {}
-    let loch = ''; for (let x = 5; x < W; x += 10) loch += `<circle cx="${x}" cy="0" r="3.2"/><circle cx="${x}" cy="${H}" r="3.2"/>`; for (let y = 5; y < H; y += 10) loch += `<circle cx="0" cy="${y}" r="3.2"/><circle cx="${W}" cy="${y}" r="3.2"/>`;
-    const sx = W - 34, sy = H - 50, ort = ohneBei(erste.ort || '').toUpperCase().slice(0, 18);
-    const tag = new Date(erste.ts).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'UTC' });
-    return `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true">`
-      + `<rect width="${W}" height="${H}" fill="#fffdf7"/><g class="loch">${loch}</g>`
-      + `<rect x="9" y="9" width="${W - 18}" height="${H - 18}" fill="${farbe}" fill-opacity=".07" stroke="${farbe}" stroke-width="2"/>`
-      + `<path d="${d}" fill="${farbe}" fill-opacity=".82" stroke="${farbe}" stroke-width=".6" stroke-linejoin="round"/>`
-      + `<text x="${W / 2}" y="${H - 20}" text-anchor="middle" class="m-name" fill="${farbe}">${esc(name.length > 16 ? name.slice(0, 15) + '.' : name)}</text>`
-      + `<g class="stempel" transform="rotate(-14 ${sx} ${sy})"><path class="wellen" d="M ${sx - 78} ${sy - 7} q 6 -4 12 0 t 12 0 t 12 0 t 12 0 t 12 0 M ${sx - 78} ${sy} q 6 -4 12 0 t 12 0 t 12 0 t 12 0 t 12 0 M ${sx - 78} ${sy + 7} q 6 -4 12 0 t 12 0 t 12 0 t 12 0 t 12 0"/>`
-      + `<circle cx="${sx}" cy="${sy}" r="24" class="ring"/><circle cx="${sx}" cy="${sy}" r="16.5" class="ring"/>`
-      + `<path id="pm-${id}${zusatz}" d="M ${sx - 20.3} ${sy} A 20.3 20.3 0 0 1 ${sx + 20.3} ${sy}" fill="none"/>`
-      + `<text class="m-ort"><textPath href="#pm-${id}${zusatz}" startOffset="50%" text-anchor="middle">${esc(ort)}</textPath></text>`
-      + `<text x="${sx}" y="${sy + 2.5}" text-anchor="middle" class="m-tag">${tag}</text></g></svg>`;
-  }
+  // Marke eines Landes (src/lib/marke.mjs); Poststempel mit Ort und Datum von „erste“ (erster Besuch bzw. dieser Eintrag)
+  const markeSVG = (id, erste, zusatz = '') => markeBauen({ id, form: L10.get(id) || C110.find((x) => String(x.id) === id), name: CNAME[id] || '', ort: ohneBei(erste.ort || ''), ts: erste.ts, zusatz });
   function renderCty() {
     // genaue Formen nachladen (genaueFormDa rendert dann neu); bis dahin grober Umriss und „…“ statt einer Zahl, die gleich springt
     VISITED.forEach((id) => { if (!L10.has(id)) land10Holen(id); });

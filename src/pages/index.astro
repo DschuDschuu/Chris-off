@@ -53,8 +53,19 @@ const neuester = eintraege[0];
         <h2 id="arH">Archiv</h2>
         <button class="btn sm" id="arClose" aria-label="Archiv schließen">✕<span class="hide-n"> Schließen</span></button>
       </div>
-      <nav class="ar-jahre" id="arJahre" aria-label="Jahre"></nav>
-      <div id="entryList"></div>
+      {/* Zwei Reiter: Liste (Jahr → Monat) und Fotowand (alle Fotos als Polaroids, filterbar nach Reise/Land) – globus.js */}
+      <div class="ar-reiter" role="tablist" aria-label="Ansicht">
+        <button role="tab" id="arTabListe" aria-selected="true" aria-controls="arListe">Liste</button>
+        <button role="tab" id="arTabFotos" aria-selected="false" aria-controls="fotoWand" tabindex="-1">Fotowand</button>
+      </div>
+      <div id="arListe" role="tabpanel" aria-labelledby="arTabListe">
+        <nav class="ar-jahre" id="arJahre" aria-label="Jahre"></nav>
+        <div id="entryList"></div>
+      </div>
+      <div id="fotoWand" role="tabpanel" aria-labelledby="arTabFotos" hidden>
+        <div class="fw-filter" id="fwFilter" role="group" aria-label="Fotos filtern"></div>
+        <ul class="fw-wand" id="fwWand"></ul>
+      </div>
     </div>
   </div>
 
