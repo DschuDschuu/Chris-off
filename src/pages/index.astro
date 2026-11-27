@@ -79,6 +79,7 @@ const neuester = eintraege[0];
     <div class="pc-dreh">
       <div class="pc-seite pc-vorne" id="pcVorne">
         <div class="pc-in">
+          <a class="pc-img" id="pcImgLink" href="/"><img id="pcImg" alt="" decoding="async"><span class="pc-hint" id="pcHint">Lesen</span></a>
           <div class="pc-body">
             <span class="pa">✈ PAR AVION</span>
             <p class="pc-eyebrow" id="pcEyebrow"></p>
@@ -86,10 +87,8 @@ const neuester = eintraege[0];
             <p class="pc-meta" id="pcMeta"></p>
             <p class="pc-ex" id="pcEx" hidden></p>
           </div>
-          <div class="pc-rechts" aria-hidden="true">
-            <div class="pc-marke marke" id="pcMarke"></div>
-            <p class="pc-an"><span>An</span>alle zuhause</p>
-          </div>
+          {/* kleine Briefmarke des Landes oben rechts (statt des runden Stempels .pc-pm) */}
+          <div class="pc-marke marke" id="pcMarke" aria-hidden="true"></div>
           <div class="pc-actions" id="pcActions"></div>
           <div class="pc-pm" id="pcPm"></div>
         </div>

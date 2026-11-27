@@ -83,7 +83,11 @@ body.has-player .dock{bottom:calc(104px + env(safe-area-inset-bottom,0px))}
 .postcard.away{opacity:0;pointer-events:none}
 .postcard.pop-in{animation:pcIn .4s ease}
 @keyframes pcIn{from{transform:rotate(-1.5deg) translateY(12px) scale(.94)}to{transform:rotate(-1.5deg)}}
-.pc-in{position:relative;background:#fbf8f1;color:#16295e;display:grid;grid-template-columns:minmax(0,1fr) 112px;gap:14px;padding:12px}
+.pc-in{position:relative;background:#fbf8f1;color:#16295e;display:grid;grid-template-columns:120px minmax(0,1fr);gap:14px;padding:12px}
+.pc-img{position:relative;padding:0;border:0;display:block;overflow:hidden;background:#cdd5e0;text-decoration:none}
+.pc-img img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s ease}
+.pc-img:hover img{transform:scale(1.05)}
+.pc-hint{position:absolute;left:6px;bottom:6px;background:rgba(20,28,45,.78);color:#fff;font-family:var(--f-mono);font-size:10.5px;border-radius:999px;padding:4px 9px}
 .pc-body{display:grid;gap:6px;align-content:start;min-width:0;padding-right:46px}
 .pc-eyebrow{margin:4px 0 0;padding-right:54px;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#d0292f} /* Abstand zum Stempel */
 .pc-body h2{font-family:var(--f-display);font-weight:400;font-size:23px;line-height:1.12;margin:0;text-wrap:balance}
@@ -98,7 +102,7 @@ body.has-player .dock{bottom:calc(104px + env(safe-area-inset-bottom,0px))}
 @media (max-width:640px){
   .postcard{left:max(12px, env(safe-area-inset-left,0px))!important;right:max(12px, env(safe-area-inset-right,0px));top:auto!important;bottom:calc(122px + env(safe-area-inset-bottom,0px));width:auto;max-width:none}
   body.has-player .postcard{bottom:calc(210px + env(safe-area-inset-bottom,0px))}
-  .pc-in{grid-template-columns:minmax(0,1fr) 92px;gap:10px;padding:10px}.pc-btn{font-size:13px;padding:5px 10px}
+  .pc-in{grid-template-columns:88px minmax(0,1fr);gap:10px;padding:10px}.pc-btn{font-size:13px;padding:5px 10px}.pc-hint{font-size:9.5px}
   .dock .stats span:nth-child(3){display:none}.dock .stats{font-size:11px;padding:5px 12px}.pc-body h2{font-size:19px}.pc-body{padding-right:0}.pc-pm{display:none}.pc-eyebrow{padding-right:0}
 }
 @media (max-width:760px){main.home .gstyle{position:fixed;top:calc(104px + env(safe-area-inset-top,0px));left:50%;right:auto;transform:translateX(-50%);margin:0;flex-wrap:nowrap;white-space:nowrap}}
@@ -350,7 +354,7 @@ body.start .toast{top:auto;bottom:calc(128px + env(safe-area-inset-bottom,0px))}
 .toast{pointer-events:none}
 @media (max-height:520px) and (min-width:641px){
   .postcard{width:420px;z-index:45}
-  .pc-in{grid-template-columns:minmax(0,1fr) 96px;gap:10px}
+  .pc-in{grid-template-columns:96px minmax(0,1fr);gap:10px}
   .pc-ex{display:none!important}.pc-body h2{font-size:19px}.pc-btn{font-size:13px;padding:5px 10px}
 }
 
@@ -376,7 +380,7 @@ body.start .toast{top:auto;bottom:calc(128px + env(safe-area-inset-bottom,0px))}
 .ar-reise{color:#c0392b}
 
 /* Zuhause: Postkarte ohne Bild, mit Liste der Einträge von zuhause */
-.postcard.heim .pc-in{grid-template-columns:minmax(0,1fr)}.postcard.heim .pc-rechts{display:none}
+.postcard.heim .pc-in,.postcard.ohne-bild .pc-in{grid-template-columns:minmax(0,1fr)}
 .heim-liste{list-style:none;margin:0;padding:0;width:100%;display:grid;gap:2px;max-height:min(240px,40vh);overflow-y:auto;overscroll-behavior:contain}
 .heim-liste button{width:100%;display:flex;justify-content:space-between;align-items:baseline;gap:10px;background:none;border:0;border-radius:8px;padding:7px 8px;text-align:left;color:#16295e}
 .heim-liste button:hover{background:rgba(29,63,154,.07)}
@@ -470,14 +474,14 @@ body.zr-aktiv #cbar,body.zr-aktiv #worldBtn{display:none!important}
 
 /* Postkarte vorne rechts: Briefmarke des Landes mit Poststempel (Ort, Datum) und Adresse wie auf einer echten Karte.
    Mit Marke braucht es den runden Stempel .pc-pm nicht (nur noch Zuhause-Karte und Orte ohne Land). */
-.pc-rechts{display:flex;flex-direction:column;gap:8px;min-width:0;border-left:1px solid #c9cfdc;padding-left:12px}
-.pc-marke svg{display:block;width:64px;height:auto;margin-left:auto;transform:rotate(3deg);filter:drop-shadow(0 2px 3px rgba(60,40,10,.28))}
+.pc-marke{position:absolute;top:10px;right:12px;width:46px;pointer-events:none}
+.pc-marke svg{display:block;width:100%;height:auto;transform:rotate(4deg);filter:drop-shadow(0 2px 3px rgba(60,40,10,.28))}
 .pc-marke .loch circle{fill:#fbf8f1}
-.pc-an{margin:6px 0 0;font-family:var(--f-hand);font-weight:500;font-size:19px;line-height:1.05;color:#22345f;border-bottom:1px solid #b9c1d3;padding-bottom:2px}
-.pc-an span{font-family:var(--f-mono);font-size:10px;color:#5d6b8c;margin-right:5px}
-.pc-rechts::after{content:"";display:block;height:31px;background:repeating-linear-gradient(to bottom,transparent 0 15px,#b9c1d3 15px 16px)}
+.pc-marke:empty{display:none}
 .postcard.mit-marke .pc-pm{display:none}
-.postcard.mit-marke .pc-body{padding-right:0}.postcard.mit-marke .pc-eyebrow{padding-right:0}
+.postcard.mit-marke .pc-body{padding-right:0}
+/* Platz neben der Marke nur für die oberen Zeilen; Ort/Datum und Auszug laufen darunter über die volle Breite */
+.postcard.mit-marke .pc-eyebrow,.postcard.mit-marke .pc-body h2{padding-right:50px}
 .pc-ex{font-family:var(--f-hand);font-style:normal;font-weight:500;font-size:19px;line-height:1.22;color:#22345f}
 /* Knopf zum Umdrehen oben am Rand neben ✕ (bleibt beim Drehen stehen) */
 .pc-drehen{position:absolute;top:-13px;right:26px;z-index:3;display:inline-flex;align-items:center;gap:5px;height:30px;box-sizing:border-box;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:#fff;color:#1c2433;font-family:var(--f-mono);font-size:12px;box-shadow:0 4px 12px rgba(20,30,50,.2)}
@@ -495,7 +499,7 @@ body.zr-aktiv #cbar,body.zr-aktiv #worldBtn{display:none!important}
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='9' viewBox='0 0 16 9'%3E%3Crect width='16' height='9' fill='%23fbf8f1'/%3E%3Cpath d='M-8 2.5q4-2.7 8 0t8 0t8 0t8 0' fill='none' stroke='%231d3f9a' stroke-width='1.4'/%3E%3Cpath d='M-8 6.5q4-2.7 8 0t8 0t8 0t8 0' fill='none' stroke='%23d0292f' stroke-width='1.4'/%3E%3C/svg%3E") 0 0/16px 9px;
   -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:1.4px #16295e}
 @media (max-width:640px){
-  .pc-marke svg{width:52px}.pc-an{font-size:15px}.pc-an span{margin-right:3px}.pc-rechts{padding-left:9px}
+  .pc-marke{width:36px;top:8px;right:9px}.postcard.mit-marke .pc-eyebrow,.postcard.mit-marke .pc-body h2{padding-right:40px}
   .pc-ex{font-size:17px}
   .pc-bild{grid-template-rows:minmax(0,1fr) 70px}.pb-aus{font-size:22px;margin-bottom:-7px}
 }
@@ -580,7 +584,6 @@ a.fw-foto{text-decoration:none}
 .pc-vorne .pc-eyebrow,.pc-vorne .pc-body h2,.pc-vorne .pc-meta{flex:none;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 .pc-vorne .pc-ex{flex:1 1 0;min-height:0;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden}
 .pc-vorne .pc-ex[hidden]{display:none}
-.pc-rechts{min-height:0;overflow:hidden}
 .postcard.heim .pc-vorne > .pc-in{grid-template-rows:auto minmax(0,1fr)}
 .postcard.heim .pc-actions{min-height:0;overflow:hidden;align-items:stretch}
 .postcard.heim .heim-liste{max-height:100%}

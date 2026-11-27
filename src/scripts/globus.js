@@ -738,19 +738,25 @@ export async function startGlobus(cfg = {}) {
     if (kartenStapel) { const i = kartenStapel.es.indexOf(e); if (i < 0) kartenStapel = null; else kartenStapel.i = i; }
     stapelZeigen();
     cardE = e; pc.classList.remove('heim'); document.body.classList.add('karte-offen');
-    // Vorne rechts die Briefmarke des Landes, Poststempel mit Ort und Datum dieses Eintrags; ohne Land der runde Stempel .pc-pm
+    // Vorne oben rechts eine kleine Briefmarke des Landes, Poststempel mit Ort und Datum dieses Eintrags; ohne Land der runde Stempel .pc-pm
     if (e.cid && L10.get(e.cid) === undefined) land10Holen(e.cid);
     $('#pcMarke').innerHTML = e.cid ? markeSVG(e.cid, e, '-pc') : ''; pc.classList.toggle('mit-marke', !!$('#pcMarke').innerHTML);
-    // Rückseite: bis zu zwei Fotos aus dem Eintrag; ohne Foto lässt sich die Karte nicht umdrehen
-    const fotos = e.fotos || [], ortName = ohneBei(e.ort || ''); pc.classList.toggle('ohne-bild', !fotos.length); $('#pcDrehen').hidden = !fotos.length;
-    fotos.slice(0, 2).forEach((f, i) => { const img = $(`#pcFoto${i + 1}`); img.onerror = () => { img.onerror = null; img.src = f.bild; }; img.src = f.klein || f.bild; img.alt = f.text || `Foto aus ${ortName}`; });
-    $('#pcBild').classList.toggle('eins', fotos.length === 1);
+    // Fotos (fotosVon in daten.ts: Titelbild zuerst). Vorne links das erste (Vorschaubild, sonst das große), hinten bis zu
+    // zwei weitere: ab 3 Fotos die zwei nach dem vorderen, bei 2 beide, bei 1 dasselbe über die volle Breite.
+    // Ohne Foto: vorne nur Text über die volle Breite, kein Umdrehen.
+    const fotos = e.fotos || [], ortName = ohneBei(e.ort || ''); pc.classList.toggle('ohne-bild', !fotos.length); $('#pcDrehen').hidden = !fotos.length; $('#pcImgLink').hidden = !fotos.length;
+    const bildSetzen = (img, f, alt) => { img.onerror = () => { img.onerror = null; img.src = f.bild; }; img.src = f.klein || f.bild; img.alt = alt; };
+    if (fotos.length) bildSetzen($('#pcImg'), fotos[0], `Titelbild: ${ortName}`);
+    const hinten = fotos.length >= 3 ? fotos.slice(1, 3) : fotos.slice(0, 2);
+    hinten.forEach((f, i) => bildSetzen($(`#pcFoto${i + 1}`), f, f.text || `Foto aus ${ortName}`));
+    $('#pcBild').classList.toggle('eins', hinten.length === 1);
     const unterwegs = ortName === 'Unterwegs'; $('#pbAus').textContent = unterwegs ? 'Grüße von' : 'Grüße aus';
     $('#pbOrt').textContent = ortName.toUpperCase(); $('#pbOrt').style.setProperty('--zeichen', Math.max(6, ortName.length));
     karteDrehen(false, true);
     const art = e === ENTRIES[0] ? 'Neuester Eintrag' : vorEinemJahr.includes(e) ? 'Heute vor einem Jahr' : 'Eintrag';
     $('#pcEyebrow').textContent = e.reiseTitel ? (art === 'Eintrag' ? `Reise · ${e.reiseTitel}` : `${art} · Reise ${e.reiseTitel}`) : art;
     $('#pcNeu').hidden = !e.neu; $('#pcTitle').textContent = e.titel; $('#pcMeta').textContent = `${e.ort} · ${e.datum}` + (e.reiseTitel ? ` · Station ${e.nr} von ${e.von}` : ''); $('#pcEx').textContent = e.auszug || ''; $('#pcEx').hidden = !e.auszug; $('#pcPm').textContent = ohneBei(e.ort).toUpperCase();
+    $('#pcImgLink').href = e.musik ? e.url + '?musik=1' : e.url; $('#pcHint').textContent = e.musik ? '▶ Mit Musik' : 'Lesen';
     $('#pcActions').innerHTML = (e.musik ? `<a class="pc-btn primary" href="${e.url}?musik=1">▶ Mit Musik lesen</a><a class="pc-btn" href="${e.url}">Lesen</a>` : `<a class="pc-btn primary" href="${e.url}">Eintrag lesen →</a>`) + `<a class="pc-btn" href="${e.url}?vorlesen=1">🔈 Vorlesen</a>`;
     // Beim Blättern (richtung) nur den Inhalt tauschen – die Bewegung macht stapelWechsel(); sonst aufklappen
     if (!richtung) { pc.hidden = false; pc.classList.add('away'); pc.classList.remove('pop-in'); void pc.offsetWidth; pc.classList.add('pop-in'); }
@@ -838,7 +844,7 @@ export async function startGlobus(cfg = {}) {
   // Zuhause-Karte: dieselbe Postkarte, aber ohne Bild und mit der Liste der Einträge von zuhause (neueste zuerst)
   function openHome() {
     kartenStapel = null; $('#pcStapel').hidden = true; pc.classList.remove('stapel');
-    active = null; cardE = { heim: true, lon: HOME.lon, lat: HOME.lat }; pc.classList.add('heim'); pc.classList.remove('mit-marke'); $('#pcNeu').hidden = true; $('#pcDrehen').hidden = true; karteDrehen(false, true); document.body.classList.add('karte-offen');
+    active = null; cardE = { heim: true, lon: HOME.lon, lat: HOME.lat }; pc.classList.add('heim'); pc.classList.remove('mit-marke'); $('#pcMarke').innerHTML = ''; $('#pcNeu').hidden = true; $('#pcDrehen').hidden = true; $('#pcImgLink').hidden = true; karteDrehen(false, true); document.body.classList.add('karte-offen');
     $('#pcEyebrow').textContent = 'Zuhause'; $('#pcTitle').textContent = HOME.ort;
     $('#pcMeta').textContent = `${HOME.land} · ${HEIM.length} ${HEIM.length === 1 ? 'Eintrag' : 'Einträge'} von zuhause`; $('#pcEx').hidden = true; $('#pcPm').textContent = HOME.ort.toUpperCase();
     $('#pcActions').innerHTML = `<ul class="heim-liste">${HEIM.map((e) => `<li><button data-id="${esc(e.id)}"><b>${esc(e.titel)}${e.neu ? ' <span class="ar-neu">NEU</span>' : ''}</b><span class="d">${esc(e.datum)}</span></button></li>`).join('')}</ul>`;
