@@ -17,6 +17,11 @@ export async function startGlobus(cfg = {}) {
   // Zeitpunkt (ms, UTC-Mitternacht) für die Zeitreise; Gedanken ohne Datum gelten als „schon immer da“
   for (const e of ENTRIES) e.ts = Date.parse(e.iso);
   for (const q of POEMS) q.ts = q.iso ? Date.parse(q.iso) : -Infinity;
+  // „NEU“: Einträge der letzten NEU_TAGE Tage (heute mitgezählt) nach dem Datum des Lesers – nur gerechnet, nichts gespeichert
+  // (kein Cookie, kein localStorage). Auf dem Globus ein rotes Schild am Pin, auf der Postkarte ein Aufkleber, im Archiv
+  // und in der Zuhause-Liste ein Etikett.
+  const NEU_TAGE = 7, HEUTE_UTC = Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+  for (const e of ENTRIES) e.neu = (HEUTE_UTC - e.ts) / 864e5 < NEU_TAGE;
   // Zuhause: Einträge „von zuhause“ teilen sich einen Haus-Pin statt vieler Pins an einer Stelle
   const HOME = DATA.zuhause || null, HEIM = ENTRIES.filter((e) => e.zuhause);
   let hoverHome = false;
@@ -596,9 +601,12 @@ export async function startGlobus(cfg = {}) {
       if (zr) zrPinEffekt(e, x, y, now);
       if (isA) { const p = (now % 1800) / 1800; ctx.beginPath(); ctx.arc(x, y, 6 + p * 22, 0, 7); ctx.strokeStyle = `rgba(242,165,65,${1 - p})`; ctx.lineWidth = 2; ctx.stroke(); }
       ctx.beginPath(); ctx.arc(x, y, isA ? 6 : 4, 0, 7); ctx.fillStyle = isA ? '#ec8a1e' : '#ffffff'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#1c2433'; ctx.stroke();
+      if (e.neu && !zr) neuSchilder.push([x, y]);
       if (modus === 'home' && ((e === hoverE && e !== cardE) || (isA && !fly && !cardE))) { ctx.font = '500 12px "IBM Plex Mono", monospace'; ctx.fillStyle = '#1c2433'; const hv = e === hoverE; ctx.textAlign = hv ? 'left' : 'right'; ctx.fillText(e.ort.toUpperCase(), hv ? x + 12 : x - 14, y + 4); ctx.textAlign = 'left'; }
     }
     drawFotos(now);
+    // „NEU“-Schilder erst nach den Fotos, sonst liegen sie beim nahen Zoom unter dem Polaroid
+    for (const [x, y] of neuSchilder) drawNeu(x, y); neuSchilder.length = 0;
     if (modus === 'home') drawPoems(now, Rr, center);
     if (modus === 'home' && cardE && pc && !pc.hidden) {
       const vis = !fly && geoDistance([cardE.lon, cardE.lat], center) < 1.45; pc.classList.toggle('away', !vis);
@@ -619,6 +627,14 @@ export async function startGlobus(cfg = {}) {
         ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(qx, qy); ctx.strokeStyle = 'rgba(29,63,154,.75)'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]);
       }
     }
+  }
+  // Kleines rotes Schild „NEU“ schräg über dem Pin (gesammelt in neuSchilder, gezeichnet nach den Fotos)
+  const neuSchilder = [];
+  function drawNeu(x, y) {
+    ctx.save(); ctx.translate(x + 7, y - 13); ctx.rotate(-0.12);
+    ctx.font = '600 9px "IBM Plex Mono", monospace'; const tw = ctx.measureText('NEU').width + 8;
+    ctx.fillStyle = '#d0292f'; ctx.beginPath(); ctx.roundRect(0, -7, tw, 13, 2); ctx.fill();
+    ctx.fillStyle = '#ffffff'; ctx.textBaseline = 'middle'; ctx.fillText('NEU', 4, 0); ctx.restore();
   }
   let drawErr = 0;
   function draw(now) {
@@ -655,6 +671,7 @@ export async function startGlobus(cfg = {}) {
     if (an) { const p = (now % 1800) / 1800; ctx.beginPath(); ctx.arc(x, y - 2, 8 + p * 22, 0, 7); ctx.strokeStyle = `rgba(242,165,65,${1 - p})`; ctx.lineWidth = 2; ctx.stroke(); }
     ctx.beginPath(); ctx.moveTo(x - 8, y - 1); ctx.lineTo(x, y - 9); ctx.lineTo(x + 8, y - 1); ctx.lineTo(x + 6, y - 1); ctx.lineTo(x + 6, y + 7); ctx.lineTo(x - 6, y + 7); ctx.lineTo(x - 6, y - 1); ctx.closePath();
     ctx.fillStyle = an ? '#ec8a1e' : '#ffffff'; ctx.fill(); ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1c2433'; ctx.stroke();
+    if (!zr && HEIM.some((e) => e.neu)) neuSchilder.push([x + 2, y - 4]);
     if (modus === 'home' && (hoverHome || (an && !fly && !cardE))) { ctx.font = '500 12px "IBM Plex Mono", monospace'; ctx.fillStyle = '#1c2433'; ctx.fillText('ZUHAUSE · ' + HOME.ort.toUpperCase(), x + 14, y + 4); }
   }
   function homeAt(px, py, rad) { if (!HOME || !HEIM.length || geoDistance([HOME.lon, HOME.lat], [-rot[0], -rot[1]]) > 1.5) return false; const [x, y] = proj([HOME.lon, HOME.lat]); return Math.hypot(px - x, py - y + 1) < rad; }
@@ -737,7 +754,7 @@ export async function startGlobus(cfg = {}) {
     $('#pcImg').src = e.bild || ''; $('#pcImg').alt = `Titelbild: ${e.ort}`; $('#pcImg').hidden = !e.bild;
     const art = e === ENTRIES[0] ? 'Neuester Eintrag' : vorEinemJahr.includes(e) ? 'Heute vor einem Jahr' : 'Eintrag';
     $('#pcEyebrow').textContent = e.reiseTitel ? (art === 'Eintrag' ? `Reise · ${e.reiseTitel}` : `${art} · Reise ${e.reiseTitel}`) : art;
-    $('#pcTitle').textContent = e.titel; $('#pcMeta').textContent = `${e.ort} · ${e.datum}` + (e.reiseTitel ? ` · Station ${e.nr} von ${e.von}` : ''); $('#pcEx').textContent = e.auszug || ''; $('#pcEx').hidden = !e.auszug; $('#pcPm').textContent = ohneBei(e.ort).toUpperCase();
+    $('#pcNeu').hidden = !e.neu; $('#pcTitle').textContent = e.titel; $('#pcMeta').textContent = `${e.ort} · ${e.datum}` + (e.reiseTitel ? ` · Station ${e.nr} von ${e.von}` : ''); $('#pcEx').textContent = e.auszug || ''; $('#pcEx').hidden = !e.auszug; $('#pcPm').textContent = ohneBei(e.ort).toUpperCase();
     $('#pcImgLink').href = e.musik ? e.url + '?musik=1' : e.url; $('#pcHint').textContent = e.musik ? '▶ Mit Musik' : 'Lesen';
     $('#pcActions').innerHTML = (e.musik ? `<a class="pc-btn primary" href="${e.url}?musik=1">▶ Mit Musik lesen</a><a class="pc-btn" href="${e.url}">Lesen</a>` : `<a class="pc-btn primary" href="${e.url}">Eintrag lesen →</a>`) + `<a class="pc-btn" href="${e.url}?vorlesen=1">🔈 Vorlesen</a>`;
     // Beim Blättern (richtung) nur den Inhalt tauschen – die Bewegung macht stapelWechsel(); sonst aufklappen
@@ -801,10 +818,10 @@ export async function startGlobus(cfg = {}) {
   // Zuhause-Karte: dieselbe Postkarte, aber ohne Bild und mit der Liste der Einträge von zuhause (neueste zuerst)
   function openHome() {
     kartenStapel = null; $('#pcStapel').hidden = true; pc.classList.remove('stapel');
-    active = null; cardE = { heim: true, lon: HOME.lon, lat: HOME.lat }; pc.classList.add('heim'); $('#pcImgLink').hidden = true; document.body.classList.add('karte-offen');
+    active = null; cardE = { heim: true, lon: HOME.lon, lat: HOME.lat }; pc.classList.add('heim'); $('#pcNeu').hidden = true; $('#pcImgLink').hidden = true; document.body.classList.add('karte-offen');
     $('#pcEyebrow').textContent = 'Zuhause'; $('#pcTitle').textContent = HOME.ort;
     $('#pcMeta').textContent = `${HOME.land} · ${HEIM.length} ${HEIM.length === 1 ? 'Eintrag' : 'Einträge'} von zuhause`; $('#pcEx').hidden = true; $('#pcPm').textContent = HOME.ort.toUpperCase();
-    $('#pcActions').innerHTML = `<ul class="heim-liste">${HEIM.map((e) => `<li><button data-id="${esc(e.id)}"><b>${esc(e.titel)}</b><span class="d">${esc(e.datum)}</span></button></li>`).join('')}</ul>`;
+    $('#pcActions').innerHTML = `<ul class="heim-liste">${HEIM.map((e) => `<li><button data-id="${esc(e.id)}"><b>${esc(e.titel)}${e.neu ? ' <span class="ar-neu">NEU</span>' : ''}</b><span class="d">${esc(e.datum)}</span></button></li>`).join('')}</ul>`;
     pc.hidden = false; pc.classList.add('away'); pc.classList.remove('pop-in', 'ohne-bild'); void pc.offsetWidth; pc.classList.add('pop-in');
     focusC = null; ortZoom = true; $('#cbar').hidden = true;
     const z = Math.max(1.5, Math.min(MAXZ, zoomFuerKm(ORT_KM * 3)));
@@ -921,7 +938,7 @@ export async function startGlobus(cfg = {}) {
     const mm = nachJahr.get(j); if (!mm.has(m)) mm.set(m, []); mm.get(m).push(e);
   }
   const arEintrag = (e) => { const r = e.reise != null ? REISEN[RIDX[e.reise]] : null;
-    return `<li><button data-id="${esc(e.id)}"><span class="ar-tag">${Number(e.iso.slice(8, 10))}.</span><span class="ar-txt"><b>${esc(e.titel)}</b><span class="d">${esc(e.ort)} · ${esc(e.land)}${r ? ` · <span class="ar-reise">✈ Reise · ${esc(r.titel)}</span>` : ''}${e.zuhause ? ' · <span class="ar-heim">⌂ Zuhause</span>' : ''}</span></span></button></li>`; };
+    return `<li><button data-id="${esc(e.id)}"><span class="ar-tag">${Number(e.iso.slice(8, 10))}.</span><span class="ar-txt"><b>${esc(e.titel)}${e.neu ? ' <span class="ar-neu">NEU</span>' : ''}</b><span class="d">${esc(e.ort)} · ${esc(e.land)}${r ? ` · <span class="ar-reise">✈ Reise · ${esc(r.titel)}</span>` : ''}${e.zuhause ? ' · <span class="ar-heim">⌂ Zuhause</span>' : ''}</span></span></button></li>`; };
   $('#arJahre').innerHTML = nachJahr.size > 1 ? [...nachJahr.keys()].map((j) => `<a href="#ar-${j}">${j}</a>`).join('') : '';
   $('#entryList').innerHTML = [...nachJahr].map(([j, mm]) => { const n = [...mm.values()].reduce((a, l) => a + l.length, 0);
     return `<section class="ar-jahr" id="ar-${j}"><h3>${j} <span class="d">${n} ${n === 1 ? 'Eintrag' : 'Einträge'}</span></h3>${[...mm].map(([m, l]) => `<h4>${MONATE[Number(m) - 1]}</h4><ul>${l.map(arEintrag).join('')}</ul>`).join('')}</section>`; }).join('');

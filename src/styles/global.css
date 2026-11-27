@@ -461,3 +461,8 @@ body.zr-aktiv #cbar,body.zr-aktiv #worldBtn{display:none!important}
 .marke .m-tag{font:700 6.8px var(--f-mono);fill:rgba(28,36,51,.78)}
 .pop .marke .m-unter{display:block;font-family:var(--f-mono);font-size:10.5px;color:var(--muted);margin-top:6px}
 @media (prefers-reduced-motion:reduce){.pop .marke svg{transition:none}}
+
+/* „NEU“ (Einträge der letzten 7 Tage, globus.js NEU_TAGE): Aufkleber oben links auf der Postkarte, Etikett in Listen */
+.pc-neu{position:absolute;top:-11px;left:16px;z-index:2;background:#d0292f;color:#fff;font:600 11px/1 var(--f-mono);letter-spacing:.14em;padding:5px 9px 4px;border-radius:3px;transform:rotate(-5deg);box-shadow:0 3px 8px rgba(20,30,50,.25);pointer-events:none}
+.pc-neu[hidden]{display:none}
+.ar-neu{display:inline-block;vertical-align:2px;margin-left:4px;background:#d0292f;color:#fff;font:600 9.5px/1 var(--f-mono);letter-spacing:.12em;padding:3px 5px 2px;border-radius:2px}
